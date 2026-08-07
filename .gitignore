@@ -1,0 +1,22 @@
+# --- ARCHIVOS SENSIBLES Y CONFIGURACIÓN ---
+.env
+*.pem
+config.local.json
+
+# --- CARPETAS COMPLETAS ---
+node_modules/
+vendor/
+dist/
+build/
+.vscode/
+.idea/
+evidence/
+
+# --- PATRONES Y EXTENSIONES ---
+*.log
+*.tmp
+*.exe
+
+# --- ARCHIVOS DEL SISTEMA ---
+.DS_Store
+Thumbs.db
