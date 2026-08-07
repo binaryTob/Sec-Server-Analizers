@@ -71,38 +71,47 @@ iocs:
   - type: "ipv4-addr"
     value: "89.117.109.224"
     context: "C2 pool XMRig"
+    source: "Caso de Referencia"
     confidence: "high"
   - type: "ipv4-addr"
     value: "54.193.29.177"
     context: "IP origen del atacante (AWS US-West)"
+    source: "Caso de Referencia"
     confidence: "high"
   - type: "domain-name"
     value: "localhost0.xyz"
     context: "Dominio de entrega de dropper"
+    source: "Caso de Referencia"
     confidence: "high"
   - type: "x-mono-wallet"
     value: "4B7vsy8ccUwQufiyMN9jgoDphPUDzGUvBhE4f19U5z3WMPZqx2gjHrv2PxpuBSZRHAdD5qfEnPiApdFk4fhHZGVwU1YG1L2"
     context: "Wallet Monero del atacante"
+    source: "Caso de Referencia"
     confidence: "high"
   - type: "email"
     value: "sarapena7979@gmail.com"
     context: "Worker tag en pool del atacante"
+    source: "Caso de Referencia"
     confidence: "medium"
   - type: "user"
     value: "rpcd"
     context: "Usuario backdoor creado por atacante (UID 1005)"
+    source: "Caso de Referencia"
     confidence: "high"
   - type: "filepath"
     value: "/sbin/Xorg.X13"
     context: "Dropper shell script (1729 bytes)"
+    source: "Caso de Referencia"
     confidence: "high"
   - type: "file:sha256"
     value: "b0e1ae6d73d656b203514f498b59cbcf29f067edf6fbd3803a3de7d21960848d"
     context: "kthreadd64 — binario XMRig"
+    source: "Caso de Referencia"
     confidence: "high"
   - type: "filepath"
     value: "/usr/local/lib/kthreadd32.so"
     context: "LD_PRELOAD rootkit userland (16784 bytes)"
+    source: "Caso de Referencia"
     confidence: "high"
 ---
 
@@ -136,14 +145,13 @@ Definir el flujo end-to-end de Respuesta a Incidentes en host Linux siguiendo NI
 7. **Recovery**: rebuild host desde imagen nueva / re-provision, restore data de backup limpio.
 8. **Lessons Learned**: informe post-incidente, mejorar controles.
 
-## 7 fases tácticas para un host Linux comprometido
+## 7 fases tácticas (Caso de Referencia — incidente anonimizado)
 ```
 1. PRE  — herramientas: sysstat, bin SOC, journal-dump, shasum, netcat sinkhole
 2. IDENT — trigger: CPU alta / network spike + vector inicial SSH
 3. CONT  — firewall bloquea C2 IP, LD_PRELOAD removido
 4. COLLECT — ver linux_forensics.md
-5. ERAD  — eliminar /sbin/Xorg.X13, /sbin/busybox, /sbin/kthreadd*, /usr/local/lib/kthreadd32.so;
-            quitar usuario backdoor de sudo; bloquear persistence
+5. ERAD  — eliminar dropper + miner + rootkit + usuario backdoor
 6. RECOV — rotar root password; rotar SSH host keys; rotar credenciales de aplicación
 7. POST  — informar brute force trend, actualizar reglas HIDS
 ```

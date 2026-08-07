@@ -47,10 +47,12 @@ iocs:
   - type: "ipv4-addr"
     value: "54.193.29.177"
     context: "IP origen atacante — root login via SSH key"
+    source: "Caso de Referencia"
     confidence: "high"
   - type: "event"
     value: "useradd rpcd"
     context: "Creación de usuario backdoor en auth.log"
+    source: "Caso de Referencia"
     confidence: "high"
 ---
 
@@ -210,9 +212,9 @@ fi
 
 ## Interpretación
 - `Accepted publickey for root from <IP> ssh2: RSA SHA256:<fp>` → root ingresó con llave SSH. Notar hora: suele ser el vector inicial del atacante.
-- `useradd[...]: new user: name=rpcd, ...` → el atacante creó un usuario (implica que ya tenía root).
-- `Accepted keyboard-interactive/pam for rpcd from <IP>` → el atacante ingresa con el usuario backdoor recién creado.
-- `sudo: rpcd : TTY=pts/2 ; PWD=/ ; USER=root ; COMMAND=/usr/bin/su` → escalación de privilegios vía sudo desde el backdoor.
+- `useradd[...]: new user: name=rpcd, ...` → **Caso de Referencia**: el atacante creó un usuario (implica que ya tenía root).
+- `Accepted keyboard-interactive/pam for rpcd from <IP>` → **Caso de Referencia**: el atacante ingresa con el usuario backdoor recién creado.
+- `sudo: rpcd : TTY=pts/2 ; PWD=/ ; USER=root ; COMMAND=/usr/bin/su` → **Caso de Referencia**: escalación de privilegios vía sudo desde el backdoor.
 - `last -F` y `lastb -F` → wtmp/btmp trackean logins exitosos/fallidos (rotación ~6 meses default).
 - "message repeated N times" en auth.log → compresión de rsyslog para eventos repetidos.
 - journalctl `-u docker` puede mostrar eventos anómalos de containers (creación, eliminación, stdin attach).
@@ -234,7 +236,7 @@ fi
 - root login desde IPs de cloud/foreign (54.193.*, 45.10.*, 138.2.*).
 - `useradd` + `usermod -aG sudo` → creación de cuentas backdoor.
 - `sudo: ... COMMAND=/usr/bin/su` desde usuario no-admin → escalación.
-- Comandos `wget http://localhost0.xyz`, `gcc`, `chmod +x` agrupados temporalmente con creación de usuario.
+- Comandos `wget http://<c2-domain>` agrupados temporalmente con creación de usuario → **Caso de Referencia**: patrón de dropper.
 - Logs truncados en rango temporal específico (anti-forense).
 
 ## Buenas prácticas

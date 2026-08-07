@@ -40,14 +40,17 @@ iocs:
   - type: "filepath"
     value: "/usr/local/lib/kthreadd32.so"
     context: "LD_PRELOAD rootkit — oculta procesos del miner"
+    source: "Caso de Referencia"
     confidence: "high"
   - type: "filepath"
     value: "/etc/ld.so.preload"
     context: "Vector de carga del rootkit userland"
+    source: "Caso de Referencia"
     confidence: "high"
   - type: "filename"
     value: "libprocesshider.so"
     context: "PoC didáctico de GitHub abusado por atacantes"
+    source: "comunidad"
     confidence: "medium"
 ---
 
@@ -228,7 +231,7 @@ which unhide >/dev/null 2>&1 && unhide-linux brute \
 - `kdevtmpfsi` con `/proc/2/exe` modificado.
 - Módulos en `/proc/modules` con LICENSE no estándar o sin signer.
 - Binarios en `/bin` reemplazados (`nulled`) con permisos extraños.
-- Caso concreto: `/usr/local/lib/kthreadd32.so`, fuente de `http://localhost0.xyz/kthreadd32.c`, compilada con `gcc -Wall -fPIC -shared -o kthreadd32.so kthreadd32.c -ldl`, instalada vía `echo /usr/local/lib/kthreadd32.so >> /etc/ld.so.preload`.
+- **Caso de Referencia**: `/usr/local/lib/kthreadd32.so`, compilada in-situ con `gcc -Wall -fPIC -shared -o kthreadd32.so kthreadd32.c -ldl`, instalada vía `ld.so.preload`.
 
 ## Falsos positivos
 - chkrootkit "process hidden for readdir" con alta carga → race condition con procesos efímeros. Re-correr en idle.

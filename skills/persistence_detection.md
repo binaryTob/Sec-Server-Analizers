@@ -44,14 +44,17 @@ iocs:
   - type: "filepath"
     value: "/etc/cron.d/certbot"
     context: "Cron con entrada de miner no estándar"
+    source: "Caso de Referencia"
     confidence: "high"
   - type: "filepath"
     value: "/etc/ld.so.preload -> /usr/local/lib/kthreadd32.so"
     context: "Persistencia via rootkit userland"
+    source: "Caso de Referencia"
     confidence: "high"
   - type: "user"
     value: "rpcd"
     context: "Usuario backdoor con sudo"
+    source: "Caso de Referencia"
     confidence: "high"
 ---
 

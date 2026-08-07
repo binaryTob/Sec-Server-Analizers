@@ -38,14 +38,17 @@ iocs:
   - type: "ssh-fingerprint"
     value: "SHA256:nz1L6wKzffgO0NumXgcS51pUaAQAYmA0rqDpKvqCfaU"
     context: "RSA pubkey fingerprint — vector inicial"
+    source: "Caso de Referencia"
     confidence: "high"
   - type: "ipv4-addr"
     value: "54.193.29.177"
     context: "IP origen atacante SSH (AWS US-West)"
+    source: "Caso de Referencia"
     confidence: "high"
   - type: "user"
     value: "rpcd"
     context: "Usuario backdoor con login keyboard-interactive"
+    source: "Caso de Referencia"
     confidence: "high"
 ---
 
@@ -195,7 +198,7 @@ journalctl --since "{{SINCE}}" 2>/dev/null | grep sshd \
 
 ## IOC específicos
 - `Accepted publickey for root from <AWS US-west IP>` con fingerprint RSA no visto en backups → vector inicial.
-- Usuario `rpcd` (no estándar) creado y luego logins `keyboard-interactive/pam` → backdoor user.
+- Usuario `rpcd` (no estándar) creado y luego logins `keyboard-interactive/pam` → **Caso de Referencia**: backdoor user.
 - Llaves con comment `@protonmail` sin identidad legítima correlacionable.
 - SSH host keys removidas/regeneradas (`rc.local` ejecutando `dpkg-reconfigure openssh-server`).
 - `PermitRootLogin yes` o `PasswordAuthentication yes` en sshd_config.

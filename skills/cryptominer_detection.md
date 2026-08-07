@@ -42,18 +42,22 @@ iocs:
   - type: "x-mono-wallet"
     value: "4B7vsy8ccUwQufiyMN9jgoDphPUDzGUvBhE4f19U5z3WMPZqx2gjHrv2PxpuBSZRHAdD5qfEnPiApdFk4fhHZGVwU1YG1L2"
     context: "Wallet XMR del operador"
+    source: "Caso de Referencia"
     confidence: "high"
   - type: "ipv4-addr"
     value: "89.117.109.224"
     context: "C2 pool XMRig puerto 143"
+    source: "Caso de Referencia"
     confidence: "high"
   - type: "domain-name"
     value: "localhost0.xyz"
     context: "Dominio de entrega de dropper + payload"
+    source: "Caso de Referencia"
     confidence: "high"
   - type: "email"
     value: "sarapena7979@gmail.com"
     context: "Email del operador en worker tag del pool"
+    source: "Caso de Referencia"
     confidence: "medium"
 ---
 
@@ -196,5 +200,5 @@ ls -la /etc/cron.d/* /etc/cron.daily/* /etc/cron.hourly/* > "{{OUTPUT_DIR}}/cron
 - TrendMicro: "Detecting and Mitigating Cryptomining Malware in Linux"
 - CrowdStrike: "8220 Gang"; Aqua: "perfctl" (14/08/2024)
 - MalwareBazaar: https://bazaar.abuse.ch/
-- `localhost0.xyz` asociado a campaña Perfctl/PerfX
+- Dominio `localhost0.xyz` — **Caso de Referencia**: campaña Perfctl/PerfX
 - Tinymanw Dhilip: "ld.so.preload malware family"

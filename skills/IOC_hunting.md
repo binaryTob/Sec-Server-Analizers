@@ -43,23 +43,28 @@ output:
 iocs:
   - type: "ipv4-addr"
     value: "54.193.29.177"
-    context: "IP origen atacante (AWS US-West Oregon) — Aug 4 10:59 -03"
+    context: "IP origen atacante (AWS US-West Oregon)"
+    source: "Caso de Referencia"
     confidence: "high"
   - type: "ipv4-addr"
     value: "89.117.109.224"
     context: "C2 pool XMRig stratum puerto 143"
+    source: "Caso de Referencia"
     confidence: "high"
   - type: "domain-name"
     value: "localhost0.xyz"
     context: "Dropper/download delivery CDN"
+    source: "Caso de Referencia"
     confidence: "high"
   - type: "file:sha256"
     value: "b0e1ae6d73d656b203514f498b59cbcf29f067edf6fbd3803a3de7d21960848d"
     context: "kthreadd64 — XMRig binary"
+    source: "Caso de Referencia"
     confidence: "high"
   - type: "x-mono-wallet"
     value: "4B7vsy8ccUwQufiyMN9jgoDphPUDzGUvBhE4f19U5z3WMPZqx2gjHrv2PxpuBSZRHAdD5qfEnPiApdFk4fhHZGVwU1YG1L2"
     context: "Wallet Monero del atacante"
+    source: "Caso de Referencia"
     confidence: "high"
 ---
 
@@ -199,7 +204,7 @@ mkdir -p "{{OUTPUT_DIR}}"/{network,host,file,behavior,feeds}
 } | tee "{{OUTPUT_DIR}}/network/tunnels.txt"
 ```
 
-### 7. Generación de feed estandarizado (STIX-lite CSV)
+### 7. Generación de feed estandarizado (Caso de Referencia)
 ```bash
 # [risk:ro] [mode:auto]
 cat > "{{OUTPUT_DIR}}/feeds/iocs.csv" << 'IOCEOF'
@@ -235,23 +240,24 @@ wc -l "{{OUTPUT_DIR}}/feeds/iocs.csv"
 - `/dev/tcp` en shell scripts legítimos (aunque raro, posible en herramientas de monitoreo).
 - Herramientas de tunneling (chisel, ngrok) usadas por developers para debugging.
 
-## IOC list del caso de referencia
+## IOC list — Caso de Referencia
+IOCs extraídos de un incidente real anonimizado usado como training data.
 ```
 IPs:
-  54.193.29.177        (AWS US-West Oregon source attack Init)
-  89.117.109.224       (XMrig mining pool, port 143)
+  54.193.*.*          (AWS US-West Oregon — IP origen atacante)
+  89.117.*.*          (C2 pool XMRig stratum)
 Domains:
-  localhost0.xyz       (dropper/download delivery)
+  localhost0.xyz      (dropper/download delivery CDN)
 Files:
-  /sbin/Xorg.X13                 (sh dropper, 1729 bytes)
-  /sbin/busybox.static           (downloader)
-  /sbin/kthreadd64               (XMRig, 8297712 bytes)
-  /usr/local/lib/kthreadd32.so   (LD_PRELOAD rootkit, 16784 bytes)
+  /sbin/Xorg.X13      (sh dropper)
+  /sbin/busybox.static (downloader)
+  /sbin/kthreadd64     (XMRig binary, ~8MB)
+  /usr/local/lib/kthreadd32.so (LD_PRELOAD rootkit userland)
 Wallet:
-  4B7vsy8ccUwQufiyMN9jgoDphPUDzGUvBhE4f19U5z3WMPZqx2gjHrv2PxpuBSZRHAdD5qfEnPiApdFk4fhHZGVwU1YG1L2.worker55
+  4B7vs... (Monero XMR, truncado)
 Backdoor: rpcd (UID 1005)
 Persistence:
-  /etc/cron.d/certbot (*/5 * * * * root /sbin/Xorg.X13 55)
+  /etc/cron.d/certbot (entrada de miner cada 5 min)
   /etc/ld.so.preload -> kthreadd32.so
 TTP ATT&CK:
   T1110, T1078, T1098.001, T1136.001, T1059.004, T1105, T1027.002,
