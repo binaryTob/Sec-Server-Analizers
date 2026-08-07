@@ -1,0 +1,88 @@
+# ============================================================
+# Server-Analizers Skill Schema v2.0
+# Define el contrato que toda skill debe cumplir para ser
+# parseable, parametrizable y componible por un orquestador.
+# ============================================================
+
+version: "2.0"
+
+# --- Campos requeridos del frontmatter YAML de cada skill ---
+required:
+  - id            # slug único (ej: "cryptominer_detection")
+  - name          # nombre legible (ej: "Detección de Cryptominers")
+  - category      # taxonomía: detection | forensics | response | hardening | hunting | analysis
+  - phase         # fase PICERL: prep | ident | contain | collect | eradic | recover | post
+  - risk          # global: readonly | destructive_containment | destructive_eradication
+  - parameters    # variables de entrada tipadas
+  - output        # esquema de salida estandarizado
+
+# --- Campos opcionales ---
+optional:
+  - depends_on    # lista de skill IDs que deben ejecutarse antes
+  - provides      # lista de skill IDs que esta habilita después
+  - triggers      # condiciones de activación automática
+  - iocs          # IOCs empaquetados en formato STIX-lite
+  - mitre_attack  # técnicas MITRE ATT&CK mapeadas
+  - false_positives # lista estructurada de falsos positivos
+  - references    # referencias externas con URI
+
+# --- Tipos de parámetros aceptados ---
+parameter_types:
+  string:    texto libre (path, IP, dominio)
+  integer:   número entero (PID, puerto)
+  float:     número decimal (umbral CPU)
+  datetime:  timestamp ISO 8601 (YYYY-MM-DDTHH:MM:SS)
+  duration:  intervalo (1h, 30m, 7d)
+  boolean:   true/false
+  enum:      lista cerrada de valores
+  filepath:  ruta validada en filesystem
+  regex:     expresión regular
+
+# --- Niveles de riesgo por bloque de comando ---
+block_risk_levels:
+  ro:    "readonly — solo lectura, cero modificación al sistema"
+  info:  "readonly — consulta de metadata inofensiva"
+  net:   "readonly — captura de tráfico (puede generar tráfico mínimo)"
+  cont:  "containment — bloquea C2/usuario pero no borra archivos"
+  erad:  "eradication — elimina malware/usuarios/persistencia"
+  reconf: "reconfiguration — modifica configs del sistema (ssh, firewall)"
+
+# --- Modos de ejecución ---
+execution_modes:
+  auto:    "ejecución automática sin confirmación (solo ro/info/net)"
+  confirm: "requiere confirmación explícita del analista (cont/erad/reconf)"
+  manual:  "comando no automatizable, requiere intervención humana"
+
+# --- Formato de salida estandarizado ---
+output_schema:
+  type: object
+  properties:
+    skill_id:       { type: string }
+    execution_time: { type: string, format: datetime }
+    host:           { type: string }
+    risk_level:     { type: string, enum: [ro, info, net, cont, erad, reconf] }
+    findings:
+      type: array
+      items:
+        type: object
+        properties:
+          severity:   { type: string, enum: [critical, high, medium, low, info] }
+          category:   { type: string }
+          artifact:   { type: string }
+          evidence:   { type: string }
+          mitre_id:   { type: string }
+          confidence: { type: string, enum: [high, medium, low, needs_context] }
+    iocs_extracted:
+      type: array
+      items: { $ref: "#/ioc_schema" }
+    raw_output:     { type: string }
+
+ioc_schema:
+  type: object
+  properties:
+    type:       { type: string }
+    value:      { type: string }
+    context:    { type: string }
+    first_seen: { type: string, format: date }
+    last_seen:  { type: string, format: date }
+    confidence: { type: string, enum: [high, medium, low, needs_context] }

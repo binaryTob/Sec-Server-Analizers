@@ -1,0 +1,153 @@
+# ============================================================
+# Server-Analizers Skill Index v2.0
+# Catálogo maestro de todas las skills disponibles.
+# Un orquestador usa este índice para descubrir, componer y
+# ejecutar skills en el orden correcto según fase y dependencias.
+# ============================================================
+
+version: "2.0"
+generated: "2026-08-07"
+
+skills:
+  # --- Fase: Preparation ---
+  - id: "linux_forensics"
+    file: "linux_forensics.md"
+    category: "forensics"
+    phase: "collect"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: []
+    provides: ["incident_response", "cryptominer_detection", "malware_hunting"]
+
+  # --- Fase: Identification ---
+  - id: "log_analysis"
+    file: "log_analysis.md"
+    category: "analysis"
+    phase: "ident"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: []
+    provides: ["incident_response", "ssh_forensics", "persistence_detection"]
+
+  - id: "ssh_forensics"
+    file: "ssh_forensics.md"
+    category: "forensics"
+    phase: "ident"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["log_analysis"]
+    provides: ["incident_response", "persistence_detection"]
+
+  - id: "cryptominer_detection"
+    file: "cryptominer_detection.md"
+    category: "detection"
+    phase: "ident"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["linux_forensics"]
+    provides: ["incident_response", "malware_hunting", "rootkit_detection"]
+
+  - id: "malware_hunting"
+    file: "malware_hunting.md"
+    category: "hunting"
+    phase: "ident"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["linux_forensics"]
+    provides: ["incident_response", "rootkit_detection", "IOC_hunting"]
+
+  - id: "rootkit_detection"
+    file: "rootkit_detection.md"
+    category: "detection"
+    phase: "ident"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["cryptominer_detection", "malware_hunting"]
+    provides: ["incident_response", "persistence_detection"]
+
+  - id: "persistence_detection"
+    file: "persistence_detection.md"
+    category: "detection"
+    phase: "ident"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["linux_forensics"]
+    provides: ["incident_response", "IOC_hunting"]
+
+  # --- Fase: Hunting & IOC ---
+  - id: "IOC_hunting"
+    file: "IOC_hunting.md"
+    category: "hunting"
+    phase: "collect"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: ["linux_forensics", "malware_hunting", "persistence_detection"]
+    provides: ["incident_response"]
+
+  # --- Fase: Response (orquestador) ---
+  - id: "incident_response"
+    file: "incident_response.md"
+    category: "response"
+    phase: "contain"
+    risk: "destructive_containment"
+    execution_mode: "confirm"
+    depends_on:
+      - "linux_forensics"
+      - "cryptominer_detection"
+      - "malware_hunting"
+      - "rootkit_detection"
+      - "persistence_detection"
+      - "IOC_hunting"
+      - "ssh_forensics"
+      - "log_analysis"
+    provides: ["hardening"]
+
+  # --- Fase: Post-Incident ---
+  - id: "hardening"
+    file: "hardening.md"
+    category: "hardening"
+    phase: "recover"
+    risk: "reconf"
+    execution_mode: "confirm"
+    depends_on: ["incident_response"]
+    provides: []
+
+# --- Workflows predefinidos ---
+workflows:
+  quick_triage:
+    description: "Triage rápido ante sospecha de compromiso (solo-lectura)"
+    sequence:
+      - "linux_forensics"
+      - "persistence_detection"
+      - "log_analysis"
+
+  compromise_assessment:
+    description: "Assessment completo de compromiso (solo-lectura)"
+    sequence:
+      - "linux_forensics"
+      - "cryptominer_detection"
+      - "malware_hunting"
+      - "rootkit_detection"
+      - "persistence_detection"
+      - "ssh_forensics"
+      - "log_analysis"
+      - "IOC_hunting"
+
+  incident_response_full:
+    description: "Respuesta a incidente end-to-end (incluye contención/erradicación)"
+    sequence:
+      - "linux_forensics"
+      - "cryptominer_detection"
+      - "malware_hunting"
+      - "rootkit_detection"
+      - "persistence_detection"
+      - "ssh_forensics"
+      - "log_analysis"
+      - "IOC_hunting"
+      - "incident_response"
+      - "hardening"
+
+  post_breach_hardening:
+    description: "Solo hardening post-remediación"
+    sequence:
+      - "hardening"
