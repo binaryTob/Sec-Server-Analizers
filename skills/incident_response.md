@@ -71,38 +71,47 @@ iocs:
   - type: "ipv4-addr"
     value: "203.0.113.99"
     context: "C2 pool XMRig"
+    source: "ejemplo sintético"
     confidence: "high"
   - type: "ipv4-addr"
     value: "192.0.2.170"
     context: "IP origen del atacante (AWS US-West)"
+    source: "ejemplo sintético"
     confidence: "high"
   - type: "domain-name"
     value: "example.invalid"
     context: "Dominio de entrega de dropper"
+    source: "ejemplo sintético"
     confidence: "high"
   - type: "x-mono-wallet"
     value: "SYNTHETIC_WALLET_EXAMPLE"
     context: "Wallet Monero del atacante"
+    source: "ejemplo sintético"
     confidence: "high"
   - type: "email"
     value: "synthetic@example.invalid"
     context: "Worker tag en pool del atacante"
+    source: "ejemplo sintético"
     confidence: "medium"
   - type: "user"
     value: "synthetic-user"
     context: "Usuario backdoor creado por atacante (UID 1005)"
+    source: "ejemplo sintético"
     confidence: "high"
   - type: "filepath"
     value: "/example/synthetic-dropper"
     context: "Dropper shell script (1729 bytes)"
+    source: "ejemplo sintético"
     confidence: "high"
   - type: "file:sha256"
     value: "0000000000000000000000000000000000000000000000000000000000000000"
     context: "kthreadd64 — binario XMRig"
+    source: "ejemplo sintético"
     confidence: "high"
   - type: "filepath"
     value: "/example/synthetic-library.so"
     context: "LD_PRELOAD rootkit userland (16784 bytes)"
+    source: "ejemplo sintético"
     confidence: "high"
 ---
 
@@ -136,14 +145,13 @@ Definir el flujo end-to-end de Respuesta a Incidentes en host Linux siguiendo NI
 7. **Recovery**: rebuild host desde imagen nueva / re-provision, restore data de backup limpio.
 8. **Lessons Learned**: informe post-incidente, mejorar controles.
 
-## 7 fases tácticas para un host Linux comprometido
+## 7 fases tácticas (ejemplo sintético — incidente anonimizado)
 ```
 1. PRE  — herramientas: sysstat, bin SOC, journal-dump, shasum, netcat sinkhole
 2. IDENT — trigger: CPU alta / network spike + vector inicial SSH
 3. CONT  — firewall bloquea C2 IP, LD_PRELOAD removido
 4. COLLECT — ver linux_forensics.md
-5. ERAD  — eliminar /example/synthetic-dropper, /sbin/busybox, /sbin/kthreadd*, /example/synthetic-library.so;
-            quitar usuario backdoor de sudo; bloquear persistence
+5. ERAD  — eliminar dropper + miner + rootkit + usuario backdoor
 6. RECOV — rotar root password; rotar SSH host keys; rotar credenciales de aplicación
 7. POST  — informar brute force trend, actualizar reglas HIDS
 ```

@@ -43,23 +43,28 @@ output:
 iocs:
   - type: "ipv4-addr"
     value: "192.0.2.170"
-    context: "IP origen atacante (AWS US-West Oregon) — Aug 4 10:59 -03"
+    context: "IP origen atacante (AWS US-West Oregon)"
+    source: "ejemplo sintético"
     confidence: "high"
   - type: "ipv4-addr"
     value: "203.0.113.99"
     context: "C2 pool XMRig stratum puerto 143"
+    source: "ejemplo sintético"
     confidence: "high"
   - type: "domain-name"
     value: "example.invalid"
     context: "Dropper/download delivery CDN"
+    source: "ejemplo sintético"
     confidence: "high"
   - type: "file:sha256"
     value: "0000000000000000000000000000000000000000000000000000000000000000"
     context: "kthreadd64 — XMRig binary"
+    source: "ejemplo sintético"
     confidence: "high"
   - type: "x-mono-wallet"
     value: "SYNTHETIC_WALLET_EXAMPLE"
     context: "Wallet Monero del atacante"
+    source: "ejemplo sintético"
     confidence: "high"
 ---
 
@@ -199,7 +204,7 @@ mkdir -p "{{OUTPUT_DIR}}"/{network,host,file,behavior,feeds}
 } | tee "{{OUTPUT_DIR}}/network/tunnels.txt"
 ```
 
-### 7. Generación de feed estandarizado (STIX-lite CSV)
+### 7. Generación de feed estandarizado (ejemplo sintético)
 ```bash
 # [risk:ro] [mode:auto]
 cat > "{{OUTPUT_DIR}}/feeds/iocs.csv" << 'IOCEOF'
@@ -235,23 +240,24 @@ wc -l "{{OUTPUT_DIR}}/feeds/iocs.csv"
 - `/dev/tcp` en shell scripts legítimos (aunque raro, posible en herramientas de monitoreo).
 - Herramientas de tunneling (chisel, ngrok) usadas por developers para debugging.
 
-## IOC list del caso de referencia
+## IOC list — ejemplo sintético
+IOCs extraídos de un ejemplo sintético usado como training data.
 ```
 IPs:
-  192.0.2.170        (AWS US-West Oregon source attack Init)
-  203.0.113.99       (XMrig mining pool, port 143)
+  192.0.*.*          (AWS US-West Oregon — IP origen atacante)
+  198.51.*.*          (C2 pool XMRig stratum)
 Domains:
-  example.invalid       (dropper/download delivery)
+  example.invalid      (dropper/download delivery CDN)
 Files:
-  /example/synthetic-dropper                 (sh dropper, 1729 bytes)
-  /example/synthetic-downloader           (downloader)
-  /example/synthetic-miner               (XMRig, 8297712 bytes)
-  /example/synthetic-library.so   (LD_PRELOAD rootkit, 16784 bytes)
+  /example/synthetic-dropper      (sh dropper)
+  /example/synthetic-downloader (downloader)
+  /example/synthetic-miner     (XMRig binary, ~8MB)
+  /example/synthetic-library.so (LD_PRELOAD rootkit userland)
 Wallet:
-  SYNTHETIC_WALLET_EXAMPLE.worker55
+  4B7vs... (Monero XMR, truncado)
 Backdoor: synthetic-user (UID 1005)
 Persistence:
-  /example/cron-entry (*/5 * * * * root /example/synthetic-dropper 55)
+  /example/cron-entry (entrada de miner cada 5 min)
   /etc/ld.so.preload -> synthetic-library.so
 TTP ATT&CK:
   T1110, T1078, T1098.001, T1136.001, T1059.004, T1105, T1027.002,

@@ -42,18 +42,22 @@ iocs:
   - type: "x-mono-wallet"
     value: "SYNTHETIC_WALLET_EXAMPLE"
     context: "Wallet XMR del operador"
+    source: "ejemplo sintético"
     confidence: "high"
   - type: "ipv4-addr"
     value: "203.0.113.99"
     context: "C2 pool XMRig puerto 143"
+    source: "ejemplo sintético"
     confidence: "high"
   - type: "domain-name"
     value: "example.invalid"
     context: "Dominio de entrega de dropper + payload"
+    source: "ejemplo sintético"
     confidence: "high"
   - type: "email"
     value: "synthetic@example.invalid"
     context: "Email del operador en worker tag del pool"
+    source: "ejemplo sintético"
     confidence: "medium"
 ---
 
@@ -196,5 +200,5 @@ ls -la /etc/cron.d/* /etc/cron.daily/* /etc/cron.hourly/* > "{{OUTPUT_DIR}}/cron
 - TrendMicro: "Detecting and Mitigating Cryptomining Malware in Linux"
 - CrowdStrike: "8220 Gang"; Aqua: "perfctl" (14/08/2024)
 - MalwareBazaar: https://bazaar.abuse.ch/
-- `example.invalid` asociado a campaña Perfctl/PerfX
+- Dominio `example.invalid` — **ejemplo sintético**: campaña Perfctl/PerfX
 - Tinymanw Dhilip: "ld.so.preload malware family"

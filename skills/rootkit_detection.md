@@ -40,14 +40,17 @@ iocs:
   - type: "filepath"
     value: "/example/synthetic-library.so"
     context: "LD_PRELOAD rootkit — oculta procesos del miner"
+    source: "ejemplo sintético"
     confidence: "high"
   - type: "filepath"
     value: "/etc/ld.so.preload"
     context: "Vector de carga del rootkit userland"
+    source: "ejemplo sintético"
     confidence: "high"
   - type: "filename"
     value: "libprocesshider.so"
     context: "PoC didáctico de GitHub abusado por atacantes"
+    source: "comunidad"
     confidence: "medium"
 ---
 
@@ -228,7 +231,7 @@ which unhide >/dev/null 2>&1 && unhide-linux brute \
 - `kdevtmpfsi` con `/proc/2/exe` modificado.
 - Módulos en `/proc/modules` con LICENSE no estándar o sin signer.
 - Binarios en `/bin` reemplazados (`nulled`) con permisos extraños.
-- Caso concreto: `/example/synthetic-library.so`, fuente de `http://example.invalid/kthreadd32.c`, compilada con `gcc -Wall -fPIC -shared -o synthetic-library.so kthreadd32.c -ldl`, instalada vía `echo /example/synthetic-library.so >> /etc/ld.so.preload`.
+- **ejemplo sintético**: `/example/synthetic-library.so`, compilada in-situ con `gcc -Wall -fPIC -shared -o synthetic-library.so kthreadd32.c -ldl`, instalada vía `ld.so.preload`.
 
 ## Falsos positivos
 - chkrootkit "process hidden for readdir" con alta carga → race condition con procesos efímeros. Re-correr en idle.

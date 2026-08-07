@@ -47,10 +47,12 @@ iocs:
   - type: "ipv4-addr"
     value: "192.0.2.170"
     context: "IP origen atacante — root login via SSH key"
+    source: "ejemplo sintético"
     confidence: "high"
   - type: "event"
     value: "useradd synthetic-user"
     context: "Creación de usuario backdoor en auth.log"
+    source: "ejemplo sintético"
     confidence: "high"
 ---
 
@@ -210,9 +212,9 @@ fi
 
 ## Interpretación
 - `Accepted publickey for root from <IP> ssh2: RSA SHA256:<fp>` → root ingresó con llave SSH. Notar hora: suele ser el vector inicial del atacante.
-- `useradd[...]: new user: name=synthetic-user, ...` → el atacante creó un usuario (implica que ya tenía root).
-- `Accepted keyboard-interactive/pam for synthetic-user from <IP>` → el atacante ingresa con el usuario backdoor recién creado.
-- `sudo: synthetic-user : TTY=pts/2 ; PWD=/ ; USER=root ; COMMAND=/usr/bin/su` → escalación de privilegios vía sudo desde el backdoor.
+- `useradd[...]: new user: name=synthetic-user, ...` → **ejemplo sintético**: el atacante creó un usuario (implica que ya tenía root).
+- `Accepted keyboard-interactive/pam for synthetic-user from <IP>` → **ejemplo sintético**: el atacante ingresa con el usuario backdoor recién creado.
+- `sudo: synthetic-user : TTY=pts/2 ; PWD=/ ; USER=root ; COMMAND=/usr/bin/su` → **ejemplo sintético**: escalación de privilegios vía sudo desde el backdoor.
 - `last -F` y `lastb -F` → wtmp/btmp trackean logins exitosos/fallidos (rotación ~6 meses default).
 - "message repeated N times" en auth.log → compresión de rsyslog para eventos repetidos.
 - journalctl `-u docker` puede mostrar eventos anómalos de containers (creación, eliminación, stdin attach).
@@ -234,7 +236,7 @@ fi
 - root login desde IPs de cloud/foreign (54.193.*, 45.10.*, 138.2.*).
 - `useradd` + `usermod -aG sudo` → creación de cuentas backdoor.
 - `sudo: ... COMMAND=/usr/bin/su` desde usuario no-admin → escalación.
-- Comandos `wget http://example.invalid`, `gcc`, `chmod +x` agrupados temporalmente con creación de usuario.
+- Comandos `wget http://<c2-domain>` agrupados temporalmente con creación de usuario → **ejemplo sintético**: patrón de dropper.
 - Logs truncados en rango temporal específico (anti-forense).
 
 ## Buenas prácticas

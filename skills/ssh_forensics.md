@@ -38,14 +38,17 @@ iocs:
   - type: "ssh-fingerprint"
     value: "SHA256:EXAMPLE_ONLY"
     context: "RSA pubkey fingerprint — vector inicial"
+    source: "ejemplo sintético"
     confidence: "high"
   - type: "ipv4-addr"
     value: "192.0.2.170"
     context: "IP origen atacante SSH (AWS US-West)"
+    source: "ejemplo sintético"
     confidence: "high"
   - type: "user"
     value: "synthetic-user"
     context: "Usuario backdoor con login keyboard-interactive"
+    source: "ejemplo sintético"
     confidence: "high"
 ---
 
@@ -195,7 +198,7 @@ journalctl --since "{{SINCE}}" 2>/dev/null | grep sshd \
 
 ## IOC específicos
 - `Accepted publickey for root from <AWS US-west IP>` con fingerprint RSA no visto en backups → vector inicial.
-- Usuario `synthetic-user` (no estándar) creado y luego logins `keyboard-interactive/pam` → backdoor user.
+- Usuario `synthetic-user` (no estándar) creado y luego logins `keyboard-interactive/pam` → **ejemplo sintético**: backdoor user.
 - Llaves con comment `@example.invalid` sin identidad legítima correlacionable.
 - SSH host keys removidas/regeneradas (`rc.local` ejecutando `dpkg-reconfigure openssh-server`).
 - `PermitRootLogin yes` o `PasswordAuthentication yes` en sshd_config.

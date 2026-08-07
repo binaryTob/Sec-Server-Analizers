@@ -44,14 +44,17 @@ iocs:
   - type: "filepath"
     value: "/example/cron-entry"
     context: "Cron con entrada de miner no estándar"
+    source: "ejemplo sintético"
     confidence: "high"
   - type: "filepath"
     value: "/etc/ld.so.preload -> /example/synthetic-library.so"
     context: "Persistencia via rootkit userland"
+    source: "ejemplo sintético"
     confidence: "high"
   - type: "user"
     value: "synthetic-user"
     context: "Usuario backdoor con sudo"
+    source: "ejemplo sintético"
     confidence: "high"
 ---
 
