@@ -1,124 +1,258 @@
+---
+id: "log_analysis"
+name: "Skill: Log Analysis en Linux"
+version: "2.0"
+category: "analysis"
+phase: "ident"
+risk: "readonly"
+execution_mode: "auto"
+depends_on: []
+provides: ["incident_response", "ssh_forensics", "persistence_detection"]
+triggers:
+  - "Compromise Assessment (correlación de eventos basada en tiempo)"
+  - "Investigación de un incidente específico (login, comando sospechoso)"
+  - "Revisión de intentos de brute force SSH"
+  - "Detección de gap temporal en logs (posible tampering)"
+mitre_attack:
+  - "T1070.002"  # Clear Linux/Mac System Logs
+  - "T1562.006"  # auditd bypass
+  - "T1078"      # Valid Accounts
+  - "T1136.001"  # Create Account
+  - "T1548.003"  # sudo
+parameters:
+  OUTPUT_DIR:
+    type: "filepath"
+    default: "/root/forensic-backup-$(date +%Y%m%d-%H%M%S)"
+    description: "Directorio para almacenar extractos de logs"
+  SINCE:
+    type: "datetime"
+    default: "1 day ago"
+    required: false
+  UNTIL:
+    type: "datetime"
+    default: "now"
+    required: false
+  TARGET_USER:
+    type: "string"
+    required: false
+    description: "Filtrar eventos de autenticación para un usuario específico"
+  SUSPECT_IP:
+    type: "string"
+    required: false
+    description: "Filtrar eventos por IP de origen sospechosa"
+output:
+  format: "json"
+  schema: "output_schema"
+iocs:
+  - type: "ipv4-addr"
+    value: "54.193.29.177"
+    context: "IP origen atacante — root login via SSH key"
+    confidence: "high"
+  - type: "event"
+    value: "useradd rpcd"
+    context: "Creación de usuario backdoor en auth.log"
+    confidence: "high"
+---
+
 # Skill: Log Analysis en Linux
 
 ## Objetivo
-Cobro despeja parent Font, asembly query converges relevant de logs (auth.log, syslog, journalctl, kern, messagedispatcher croin. Detectar evidence de intrusion inicial, lateral movement, persistence creation, sudo, root ssh, panics取证.
+Analizar logs del sistema (auth.log, syslog, journalctl, kern, cron, wtmp, btmp) para detectar evidencia de intrusión inicial, movimiento lateral, creación de persistencia, escalación de privilegios (sudo, su), logins sospechosos y posible tampering de logs.
 
 ## Cuándo usarla
-- Compromise Assessment (correlación de eventos bàso-timeado).
+- Compromise Assessment: correlación de eventos basada en tiempo.
 - Investigación de un incidente específico (login, comando sospechoso).
-- Revisión fallida: ssh brute force indicators.
+- Revisión de intentos de brute force SSH.
+- Detección de gaps en logs (posible anti-forense).
 
-## Comandos: leer principalmente archivos de logs en lugar de journalctl (para forense static)
+## Parámetros
 
-### /var/log (rsyslog classic)
+| Variable | Tipo | Requerido | Default | Descripción |
+|----------|------|-----------|---------|-------------|
+| `{{OUTPUT_DIR}}` | filepath | sí | auto-generado | Directorio de salida |
+| `{{SINCE}}` | datetime | no | `1 day ago` | Inicio de ventana temporal |
+| `{{UNTIL}}` | datetime | no | `now` | Fin de ventana temporal |
+| `{{TARGET_USER}}` | string | no | — | Usuario específico a investigar |
+| `{{SUSPECT_IP}}` | string | no | — | IP sospechosa a rastrear |
+
+## Pre-flight
 ```bash
-ls -la /var/log/
-ls -la /var/log/auth.log /var/log/auth.log.1 /var/log/auth.log.*.gz
-ls -la /var/log/syslog /var/log/syslog.* /var/log/messages /var/log/kern.log
-ls -la /var/log/audit/ /var/log/wtmp /var/log/btmp /var/log/faillog
-zcat /var/log/auth.log.2.gz | grep -E "Accepted|Failed"
-zgrep -E "Invalid user" /var/log/auth.log.2.gz
+# [risk:info] [mode:auto]
+mkdir -p "{{OUTPUT_DIR}}"/{auth,sudo,cron,journal,system}
+echo "LOG ANALYSIS START: $(date -Iseconds)" | tee "{{OUTPUT_DIR}}/manifest.txt"
 ```
 
-### auth.log - sesiones y sudo
+## Comandos
+
+### 1. /var/log — inventario de archivos de log clásicos
 ```bash
-# Exitos login por metodo:
-grep -hE "Accepted" /var/log/auth.log /var/log/auth.log.1 /var/log/auth.log.*.gz
-sudo zgrep -hE "Accepted" /var/log/auth.log.*.gz
-grep -hE "Accepted (publickey|password|keyboard-interactive)" /var/log/auth.log* | \
-  sed -nE 's/.*Accepted ([^ ]+ [^ ]+) for ([^ ]+) from ([^ ]+) port.*: (SHA256:[^ ]+).*/\1 \2 from=\3 fp=\4/p' | \
-  sort | uniq -c | sort -nr
-# Usuarios creation/modby:
-grep -hE "useradd|usermod|chpasswd|passwd.*changed.*uid|gshadow" /var/log/auth.log*
-# sudo:
-grep -hE "sudo:" /var/log/auth.log*
-# Sesiones de sesion openaggro:
-grep -hE "pam_unix\((sshd|sudo|su|cron):session\): session (opened|closed)" /var/log/auth.log*
+# [risk:ro] [mode:auto]
+{
+  echo "=== LOG FILES INVENTORY ==="
+  ls -la /var/log/
+  echo "=== AUTH LOG FILES ==="
+  ls -la /var/log/auth.log /var/log/auth.log.1 /var/log/auth.log.*.gz 2>/dev/null
+  echo "=== SYSLOG FILES ==="
+  ls -la /var/log/syslog /var/log/syslog.* /var/log/messages /var/log/kern.log 2>/dev/null
+  echo "=== BINARY LOGS ==="
+  ls -la /var/log/audit/ /var/log/wtmp /var/log/btmp /var/log/faillog 2>/dev/null
+  echo "=== COMPRESSED AUTH LOGS ==="
+  zcat /var/log/auth.log.2.gz 2>/dev/null | grep -E "Accepted|Failed" | head -20
+  zgrep -E "Invalid user" /var/log/auth.log.2.gz 2>/dev/null | head -20
+} | tee "{{OUTPUT_DIR}}/log_inventory.txt"
 ```
 
-### Sudo log commandshistory (sudo logs the command lines)
+### 2. auth.log — sesiones exitosas, sudo y creación de usuarios
 ```bash
-grep -hE "sudo:[ ]+.*TTY=" /var/log/auth.log*
+# [risk:ro] [mode:auto]
+{
+  echo "=== ACCEPTED LOGINS ==="
+  grep -hE "Accepted" /var/log/auth.log /var/log/auth.log.1 /var/log/auth.log.*.gz 2>/dev/null
+  echo "=== ACCEPTED BY METHOD + FINGERPRINT ==="
+  grep -hE "Accepted (publickey|password|keyboard-interactive)" /var/log/auth.log* 2>/dev/null | \
+    sed -nE 's/.*Accepted ([^ ]+ [^ ]+) for ([^ ]+) from ([^ ]+) port.*: (SHA256:[^ ]+).*/\1 \2 from=\3 fp=\4/p' | \
+    sort | uniq -c | sort -nr
+  echo "=== USER CREATION/MODIFICATION ==="
+  grep -hE "useradd|usermod|chpasswd|passwd.*changed.*uid|gshadow" /var/log/auth.log* 2>/dev/null
+  echo "=== SUDO COMMANDS ==="
+  grep -hE "sudo:" /var/log/auth.log* 2>/dev/null
+  echo "=== PAM SESSIONS ==="
+  grep -hE "pam_unix\((sshd|sudo|su|cron):session\): session (opened|closed)" /var/log/auth.log* 2>/dev/null
+} | tee "{{OUTPUT_DIR}}/auth/auth_events.txt"
 ```
 
-### Cron log
+### 3. sudo log — comandos ejecutados con privilegios
 ```bash
-grep -i cron /var/log/syslog /var/log/syslog.1 /var/log/cron.log /var/log/cron 2>/dev/null
-# cron genera una sesion pam_unix cada X minutos/(/etc/crontab default). Seeja suspicious.
+# [risk:ro] [mode:auto]
+grep -hE "sudo:[ ]+.*TTY=" /var/log/auth.log* 2>/dev/null \
+  | tee "{{OUTPUT_DIR}}/sudo/sudo_commands.txt"
 ```
 
-### Journalctl (systemd journal)
+### 4. Cron log
 ```bash
-journalctl --since "YYYY-MM-DD HH:MM" --until "YYYY-MM-DD HH:MM"
-journalctl -u ssh -u cron -u docker --since today
-journalctl --facility auth --since today | tail -50
-journalctl -k --since "1 hour ago"      # kernel log
-journalctl --vacuum? no. Use --disk-usage
-# unit-filter specific: sshd failing auths
-journalctl -t sshd --since "today"
+# [risk:ro] [mode:auto]
+{
+  echo "=== CRON IN SYSLOG ==="
+  grep -i cron /var/log/syslog /var/log/syslog.1 2>/dev/null | tail -50
+  echo "=== CRON LOG (dedicated) ==="
+  cat /var/log/cron.log /var/log/cron 2>/dev/null | tail -50
+} | tee "{{OUTPUT_DIR}}/cron/cron_events.txt"
 ```
 
-### Rutikuk Logs
+### 5. Journalctl (systemd journal)
 ```bash
-journalctl --since "today" -p err   # err level
-grep -iE "oom|kill|panic|segfault|Hung tasked|mem alloc casual" /var/log/kern.log /var/log/syslog
-grep -iE "iló OOM killer" /var/log/kern.log /var/log/syslog
-dmesg -wT | tail                          # live kernel ring buffer
-last -F                                   # last logins /var/log/wtmp
-lastb -F                                  # failed logins /var/log/btmp
-lastlog                                   # ≥last login per user
-ausearch -m user_login -ts today          # auditd
-aureport -au                              # auth report (auditd)
-aureport -x                               # executable events
-aureport -u -i --summary                  # user summary
+# [risk:ro] [mode:auto]
+{
+  echo "=== FULL JOURNAL (${{SINCE}} → ${{UNTIL}}) ==="
+  journalctl --since "{{SINCE}}" --until "{{UNTIL}}" 2>/dev/null
+  echo "=== SSH UNIT ==="
+  journalctl -u ssh --since "{{SINCE}}" 2>/dev/null
+  echo "=== CRON UNIT ==="
+  journalctl -u cron --since "{{SINCE}}" 2>/dev/null
+  echo "=== AUTH FACILITY ==="
+  journalctl --facility auth --since "{{SINCE}}" 2>/dev/null | tail -50
+  echo "=== KERNEL LOG ==="
+  journalctl -k --since "1 hour ago" 2>/dev/null
+  echo "=== SSHD (by identifier) ==="
+  journalctl -t sshd --since "{{SINCE}}" 2>/dev/null
+} | tee "{{OUTPUT_DIR}}/journal/journal_full.txt"
 ```
+
+### 6. Logs de kernel y sistema
+```bash
+# [risk:ro] [mode:auto]
+{
+  echo "=== ERROR LEVEL ==="
+  journalctl --since "{{SINCE}}" -p err 2>/dev/null
+  echo "=== OOM/PANIC/SEGFAULT ==="
+  grep -iE "oom|kill|panic|segfault|Hung task" /var/log/kern.log /var/log/syslog 2>/dev/null | tail -30
+  echo "=== DMESG ==="
+  dmesg -wT 2>/dev/null | tail -30
+  echo "=== LAST (wtmp) ==="
+  last -F
+  echo "=== LASTB (btmp) ==="
+  lastb -F
+  echo "=== LASTLOG ==="
+  lastlog 2>/dev/null
+} | tee "{{OUTPUT_DIR}}/system/system_events.txt"
+
+# Auditd (si está disponible)
+{
+  echo "=== AUSEARCH LOGIN ==="
+  ausearch -m user_login -ts "{{SINCE}}" 2>/dev/null
+  echo "=== AUREPORT AUTH ==="
+  aureport -au 2>/dev/null
+  echo "=== AUREPORT EXEC ==="
+  aureport -x 2>/dev/null
+  echo "=== AUREPORT USER SUMMARY ==="
+  aureport -u -i --summary 2>/dev/null
+} | tee "{{OUTPUT_DIR}}/system/auditd.txt"
+```
+
+### 7. Búsqueda focalizada por usuario o IP
+```bash
+# [risk:ro] [mode:auto]
+# Solo si se proporciona TARGET_USER
+if [ -n "{{TARGET_USER}}" ]; then
+  echo "=== EVENTS FOR USER: {{TARGET_USER}} ==="
+  grep -hE "{{TARGET_USER}}" /var/log/auth.log* 2>/dev/null | head -50
+fi
+
+# Solo si se proporciona SUSPECT_IP
+if [ -n "{{SUSPECT_IP}}" ]; then
+  echo "=== EVENTS FROM IP: {{SUSPECT_IP}} ==="
+  grep -hE "from {{SUSPECT_IP}}" /var/log/auth.log* 2>/dev/null | head -50
+fi
+```
+
+<!-- MODULE:helpers.collect_auth_logs -->
+<!-- MODULE:helpers.hash_evidence -->
 
 ## Interpretación
-- `Aug 4 10:59:29 sshd[...]: Accepted publickey for root from <IP> ssh2: RSA SHA256:<fp>` 
-  → root logged in via SSH key. Note la hora; this is usually como entra inicial atacante.
-- `Aug 4 10:49:07 useradd[...]: new user: name=rpcd, ...` → crearon un usuario: EL ATTACKER (--this means attacker had ROOT before).
-- `Aug 4 11:12:42 sshd: Accepted keyboard-interactive/pam for rpcd from <IP> port ... ssh2` → atacante ingresa via contrasenia con anado/backdoor user **after** add creator.
-- `sudo: rpcd : TTY=pts/2 ; PWD=/ ; USER=root ; COMMAND=/usr/bin/su` → el atacante sudo del backdoor y luego rooteau.
-- `last -F` y `lastb -F` → WTMP tracks successful/failed opentrack logins cache rotaciones (max ~6 months default).
-- En `auth.log`, "message repeated N times" — rsyslog compressións.
-- `journalctl -u docker` may show anomalous container events (new containers, removed, stdin attaches).
-- `kthreadd.exec` or `kthreaddi` abruptly appearing in /var/log/syslog persistently → suspendido boot.
+- `Accepted publickey for root from <IP> ssh2: RSA SHA256:<fp>` → root ingresó con llave SSH. Notar hora: suele ser el vector inicial del atacante.
+- `useradd[...]: new user: name=rpcd, ...` → el atacante creó un usuario (implica que ya tenía root).
+- `Accepted keyboard-interactive/pam for rpcd from <IP>` → el atacante ingresa con el usuario backdoor recién creado.
+- `sudo: rpcd : TTY=pts/2 ; PWD=/ ; USER=root ; COMMAND=/usr/bin/su` → escalación de privilegios vía sudo desde el backdoor.
+- `last -F` y `lastb -F` → wtmp/btmp trackean logins exitosos/fallidos (rotación ~6 meses default).
+- "message repeated N times" en auth.log → compresión de rsyslog para eventos repetidos.
+- journalctl `-u docker` puede mostrar eventos anómalos de containers (creación, eliminación, stdin attach).
 
-### Ident SSuspechado de logs tampering
-- fugas gaps fechas en auth.log (Jimmyche: attacker truncó /var/log/auth.log).
-- Missing lines between log rotations (logs not present for several hours/days that should be).
-- `journalctl --verify` detects journal corruptions.
-- Check sizes: `ls -l /var/log/auth.log*`Big gaps = sign of removing.
-- `last -F` y `wtmp` ay wheel chain of custody: race`/var/log/wtmp` bytes manually clear.
+### Indicadores de tampering de logs
+- Gaps de fechas en auth.log: el atacante truncó `/var/log/auth.log`.
+- Líneas faltantes entre rotaciones de log (horas/días sin eventos cuando debería haber).
+- `journalctl --verify` detecta corrupciones del journal.
+- Verificar tamaños: `ls -l /var/log/auth.log*` — gaps grandes = posible eliminación.
+- `last -F` y `wtmp`: verificar integridad de `/var/log/wtmp`.
 
 ## Falsos positivos
-- Brute force desde bots contra root (`Failed password for root from ...`) - inutil ruido año retumbabit. Focus on Accepted hits.
-- `systemd-networkd` reported by chkrootkit in logs as "sniffer": legit.
-- `session opened` for `cron` - cada script cron genera esa entrada. NOT an attacker session.
-- `lastb` fallos de bots no logged como cuenta con ID - perdetoked-context.
+- Brute force desde bots contra root (`Failed password for root from ...`): ruido normal de internet. Foco en `Accepted`.
+- `systemd-networkd` reportado por chkrootkit como "sniffer": legítimo.
+- `session opened for cron`: cada script cron genera esta entrada. NO es sesión de atacante.
+- `lastb` con fallos de bots no asociados a cuentas reales.
 
-## IOC específicos
-- root logs from AWS/cloud IPs (54.193.*/138.2.*8.2*ISFirst+ `54.193.29.177`, `45.10.*`, etc).
-- `ioctl+ food procoliñi visitor quervarname` sample SSH from Cloudflare IPs.
-- `useradd` + usermod Backy `sudo` → new accounts.
-- `sudo: ... COMMAND=/usr/bin/su` from non-admin -> privilige escalation.
-- Commands `wget http://localhost0.xyz`, `gcc`, `chmod +x` bracketing user creation -> entregan de awareness campaign.
-- Logs truncated ominous range (anti-forensic).
+## IOC específicos en logs
+- root login desde IPs de cloud/foreign (54.193.*, 45.10.*, 138.2.*).
+- `useradd` + `usermod -aG sudo` → creación de cuentas backdoor.
+- `sudo: ... COMMAND=/usr/bin/su` desde usuario no-admin → escalación.
+- Comandos `wget http://localhost0.xyz`, `gcc`, `chmod +x` agrupados temporalmente con creación de usuario.
+- Logs truncados en rango temporal específico (anti-forense).
 
 ## Buenas prácticas
-- Configura un syslog remoto / SIEM (rsyslog remote forward(`/etc/rsyslog.d/99-remote.conf`: `*.* @@remote:514`) para pre vos intrusiones.
-- Set journal persistent storage: `mkdir /var/log/journal; systemctl restart systemd-journal-flush`.
-- `auditd` rules stable for breakpointos en line phase: bobble malicensing fuctional line analisis `cron` entry lines - now Logs to heartbeat minecheck.
-- `logrotate` compression con retention:
-  `rotate 52 weekly compress delaycomp`.
-- Rotate rotations unused/así conoce `last` `lastb` hay; keep both logs - nuncaborrar.
-- Monitor changes to log files (AIDE or auditd watch):
-  `auditctl -w /var/log/auth.log -p wa -k authlog`
+- Configurar syslog remoto / SIEM: rsyslog forward (`/etc/rsyslog.d/99-remote.conf`: `*.* @@remote:514`).
+- Journal persistente: `mkdir /var/log/journal && systemctl restart systemd-journal-flush`.
+- Reglas auditd para puntos críticos:
+  ```
+  auditctl -w /var/log/auth.log -p wa -k authlog
+  auditctl -w /etc/cron.d -p wa -k crond
+  ```
+- `logrotate` con compresión y retención: `rotate 52 weekly compress delaycompress`.
+- Mantener `wtmp` y `btmp` — nunca borrar, son críticos para timeline.
+- Monitorizar cambios en archivos de log con AIDE o auditd watch.
 
 ## Referencias
-- /etc/rsyslog.conf `/etc/rsyslog.d____`.
-- man 5 `wtmp`, `btmp`, `lastlog`, `utmp`.
-- journald binary format > /var/log/journal.
-- auditd rules: `/usr/share/doc/audit-2.x/rules/10-base-config.rules`.
-- MITRE ATT&CK T1070.002 Clear Linux/Mac System Logs, T1562.006 auditd bypass.
-- "Linux Log岛的 analysis" SANS DFIR 504.
+- `man 5 wtmp`, `man 5 btmp`, `man 5 lastlog`, `man 5 utmp`
+- `/etc/rsyslog.conf` y `/etc/rsyslog.d/`
+- journald binary format: `/var/log/journal`
+- auditd rules: `/usr/share/doc/audit-2.x/rules/10-base-config.rules`
+- MITRE ATT&CK: T1070.002, T1562.006
+- SANS DFIR 504: "Linux Log Analysis"
