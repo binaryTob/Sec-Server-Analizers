@@ -84,6 +84,16 @@ skills:
     depends_on: ["linux_forensics", "malware_hunting", "persistence_detection"]
     provides: ["incident_response"]
 
+  # --- Fase: Remote Triage (wrapper solo-lectura por SSH) ---
+  - id: "remote_readonly_triage"
+    file: "remote_readonly_triage.md"
+    category: "forensics"
+    phase: "collect"
+    risk: "readonly"
+    execution_mode: "auto"
+    depends_on: []
+    provides: ["incident_response", "hardening"]
+
   # --- Fase: Response (orquestador) ---
   - id: "incident_response"
     file: "incident_response.md"
@@ -151,3 +161,8 @@ workflows:
     description: "Solo hardening post-remediación"
     sequence:
       - "hardening"
+
+  remote_compromise_assessment:
+    description: "Compromise Assessment remoto por SSH, solo-lectura (no escribe en el target)"
+    sequence:
+      - "remote_readonly_triage"
