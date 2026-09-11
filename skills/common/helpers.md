@@ -261,3 +261,30 @@ usermod -s /usr/sbin/nologin "{{BACKDOOR_USER}}" 2>/dev/null
 gpasswd -d "{{BACKDOOR_USER}}" sudo 2>/dev/null
 echo "[CONTAINMENT] Usuario {{BACKDOOR_USER}} bloqueado y removido de sudo"
 ```
+
+---
+
+## helper:ssh_remote_exec
+**Descripción**: Wrapper para ejecutar comandos **solo-lectura** en un host remoto vía SSH,
+capturando el output localmente sin escribir nada en el target (RFC 3227).
+**Parámetros**: `HOST` (requerido), `PORT` (default 22), `USER` (default root), `SSH_ARGS` (opcional)
+
+```bash
+# [risk:ro] [mode:auto] [module:ssh_remote_exec]
+command -v ssh >/dev/null 2>&1 || { echo "ERROR: ssh no disponible"; exit 1; }
+SSH_OPTS="-o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new ${SSH_ARGS:-}"
+remote() {
+  ssh ${SSH_OPTS} -p "${PORT:-22}" "${USER:-root}@${HOST}" bash -s
+}
+
+# Uso: alimentar con un heredoc cuyo script corre en el remoto vía stdin.
+# Todo el output regresa a la máquina local; no se escribe nada en el target.
+#   remote <<'EOF' > evidencia_local.txt
+#   echo "=== DATO ==="
+#   <comandos readonly>
+#   EOF
+```
+
+> Nota: `bash -s` lee el script desde stdin, de modo que los `$`, comillas simples y
+> construcciones de `awk` se escriben tal cual (sin doble escape). No incluir jamás
+> comandos `cont`/`erad`/`reconf` en un bloque `remote`.

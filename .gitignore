@@ -12,6 +12,11 @@ build/
 .idea/
 evidence/
 
+# --- REPORTES Y EVIDENCIA DE ESCANEOS (datos de hosts, no versionar) ---
+reports/
+forensic-remote-*/
+forensic-backup-*/
+
 # --- PATRONES Y EXTENSIONES ---
 *.log
 *.tmp

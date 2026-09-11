@@ -19,6 +19,7 @@ skills/
 ├── log_analysis.md       ← Análisis de auth.log, syslog, journalctl, wtmp
 ├── ssh_forensics.md      ← Forense SSH: authorized_keys, sshd_config, auth
 ├── IOC_hunting.md        ← Caza de IOCs por categoría + generación de feeds
+├── remote_readonly_triage.md ← Compromise Assessment remoto por SSH (solo-lectura, no escribe en el target)
 ├── incident_response.md  ← Orquestador PICERL end-to-end (contiene acciones write)
 └── hardening.md          ← Auditoría CIS Benchmarks post-remediación
 ```
@@ -31,6 +32,7 @@ skills/
 | `compromise_assessment` | 8 skills de detección | solo-lectura | Assessment completo |
 | `incident_response_full` | 10 skills + contención | contiene write | Incidente confirmado |
 | `post_breach_hardening` | hardening | reconfiguración | Después de erradicar |
+| `remote_compromise_assessment` | remote_readonly_triage | solo-lectura | Host remoto accesible solo por SSH, sin tocar el target |
 
 ## Cómo usarlo con IA
 
