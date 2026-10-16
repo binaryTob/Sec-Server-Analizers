@@ -45,14 +45,14 @@ output:
   schema: "output_schema"
 iocs:
   - type: "ipv4-addr"
-    value: "192.0.2.170"
-    context: "IP origen atacante — root login via SSH key"
-    source: "ejemplo sintético"
+    value: "192.0.2.17"
+    context: "Dirección sintética reservada para documentación; no es un IOC operativo"
+    source: "synthetic-example"
     confidence: "high"
   - type: "event"
     value: "useradd synthetic-user"
-    context: "Creación de usuario backdoor en auth.log"
-    source: "ejemplo sintético"
+    context: "Evento sintético de ejemplo; no representa una cuenta real"
+    source: "synthetic-example"
     confidence: "high"
 ---
 
@@ -80,6 +80,7 @@ Analizar logs del sistema (auth.log, syslog, journalctl, kern, cron, wtmp, btmp)
 ## Pre-flight
 ```bash
 # [risk:info] [mode:auto]
+umask 077
 mkdir -p "{{OUTPUT_DIR}}"/{auth,sudo,cron,journal,system}
 echo "LOG ANALYSIS START: $(date -Iseconds)" | tee "{{OUTPUT_DIR}}/manifest.txt"
 ```
@@ -212,9 +213,9 @@ fi
 
 ## Interpretación
 - `Accepted publickey for root from <IP> ssh2: RSA SHA256:<fp>` → root ingresó con llave SSH. Notar hora: suele ser el vector inicial del atacante.
-- `useradd[...]: new user: name=synthetic-user, ...` → **ejemplo sintético**: el atacante creó un usuario (implica que ya tenía root).
-- `Accepted keyboard-interactive/pam for synthetic-user from <IP>` → **ejemplo sintético**: el atacante ingresa con el usuario backdoor recién creado.
-- `sudo: synthetic-user : TTY=pts/2 ; PWD=/ ; USER=root ; COMMAND=/usr/bin/su` → **ejemplo sintético**: escalación de privilegios vía sudo desde el backdoor.
+- `useradd[...]: new user: name=<cuenta-no-baseline>, ...` → correlacionar quién creó la cuenta y qué privilegios recibió.
+- `Accepted keyboard-interactive/pam for <cuenta-no-baseline> from <IP>` → contrastar usuario, origen y hora con registros administrativos.
+- `sudo: <cuenta-no-baseline> ... USER=root ...` → validar autorización y alcance de la elevación de privilegios.
 - `last -F` y `lastb -F` → wtmp/btmp trackean logins exitosos/fallidos (rotación ~6 meses default).
 - "message repeated N times" en auth.log → compresión de rsyslog para eventos repetidos.
 - journalctl `-u docker` puede mostrar eventos anómalos de containers (creación, eliminación, stdin attach).
@@ -233,10 +234,10 @@ fi
 - `lastb` con fallos de bots no asociados a cuentas reales.
 
 ## IOC específicos en logs
-- root login desde IPs de cloud/foreign (54.193.*, 45.10.*, 138.2.*).
-- `useradd` + `usermod -aG sudo` → creación de cuentas backdoor.
+- Inicio de sesión root desde un origen no presente en el inventario autorizado.
+- `useradd` + `usermod -aG sudo` → creación de cuenta y elevación; correlacionar con autorización y baseline.
 - `sudo: ... COMMAND=/usr/bin/su` desde usuario no-admin → escalación.
-- Comandos `wget http://<c2-domain>` agrupados temporalmente con creación de usuario → **ejemplo sintético**: patrón de dropper.
+- Comandos de descarga agrupados temporalmente con creación de una cuenta no baseline → indicador que requiere correlación temporal y atribución.
 - Logs truncados en rango temporal específico (anti-forense).
 
 ## Buenas prácticas

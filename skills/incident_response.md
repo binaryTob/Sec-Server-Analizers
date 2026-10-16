@@ -42,22 +42,22 @@ parameters:
     description: "Directorio raíz para evidencia forense"
   C2_IPS:
     type: "string"
-    default: "203.0.113.99"
+    default: ""
     required: false
     description: "IPs de C2 a bloquear (separadas por espacio)"
   BACKDOOR_USER:
     type: "string"
-    default: "synthetic-user"
+    default: ""
     required: false
     description: "Nombre del usuario backdoor a deshabilitar"
   MALWARE_PATHS:
     type: "string"
-    default: "/example/synthetic-miner /usr/example/synthetic-miner /example/synthetic-dropper /sbin/busybox /example/synthetic-library.so"
+    default: ""
     required: false
     description: "Rutas de binarios de malware a eliminar (separadas por espacio)"
   CRON_BACKDOOR_FILE:
     type: "filepath"
-    default: "/example/cron-entry"
+    default: ""
     required: false
     description: "Archivo cron con entrada maliciosa a comentar"
   SINCE:
@@ -69,49 +69,49 @@ output:
   schema: "output_schema"
 iocs:
   - type: "ipv4-addr"
-    value: "203.0.113.99"
-    context: "C2 pool XMRig"
-    source: "ejemplo sintético"
+    value: "198.51.100.42"
+    context: "Dirección sintética reservada para documentación; no es un IOC operativo"
+    source: "synthetic-example"
     confidence: "high"
   - type: "ipv4-addr"
-    value: "192.0.2.170"
-    context: "IP origen del atacante (AWS US-West)"
-    source: "ejemplo sintético"
+    value: "192.0.2.17"
+    context: "Dirección sintética reservada para documentación; no es un IOC operativo"
+    source: "synthetic-example"
     confidence: "high"
   - type: "domain-name"
     value: "example.invalid"
-    context: "Dominio de entrega de dropper"
-    source: "ejemplo sintético"
+    context: "Dominio sintético reservado para documentación; no es un IOC operativo"
+    source: "synthetic-example"
     confidence: "high"
   - type: "x-mono-wallet"
     value: "SYNTHETIC_WALLET_EXAMPLE"
-    context: "Wallet Monero del atacante"
-    source: "ejemplo sintético"
+    context: "Marcador sintético; no es una dirección de wallet"
+    source: "synthetic-example"
     confidence: "high"
   - type: "email"
-    value: "synthetic@example.invalid"
-    context: "Worker tag en pool del atacante"
-    source: "ejemplo sintético"
+    value: "operator@example.invalid"
+    context: "Marcador sintético; no es una identidad real"
+    source: "synthetic-example"
     confidence: "medium"
   - type: "user"
     value: "synthetic-user"
-    context: "Usuario backdoor creado por atacante (UID 1005)"
-    source: "ejemplo sintético"
+    context: "Marcador sintético; no representa una cuenta real"
+    source: "synthetic-example"
     confidence: "high"
   - type: "filepath"
     value: "/example/synthetic-dropper"
-    context: "Dropper shell script (1729 bytes)"
-    source: "ejemplo sintético"
+    context: "Ruta sintética de ejemplo; no identifica un archivo real"
+    source: "synthetic-example"
     confidence: "high"
   - type: "file:sha256"
     value: "0000000000000000000000000000000000000000000000000000000000000000"
-    context: "kthreadd64 — binario XMRig"
-    source: "ejemplo sintético"
+    context: "Hash sintético reservado para documentación; no es un IOC operativo"
+    source: "synthetic-example"
     confidence: "high"
   - type: "filepath"
     value: "/example/synthetic-library.so"
-    context: "LD_PRELOAD rootkit userland (16784 bytes)"
-    source: "ejemplo sintético"
+    context: "Ruta sintética de ejemplo; no identifica un archivo real"
+    source: "synthetic-example"
     confidence: "high"
 ---
 
@@ -130,10 +130,10 @@ Definir el flujo end-to-end de Respuesta a Incidentes en host Linux siguiendo NI
 | Variable | Tipo | Requerido | Default | Descripción |
 |----------|------|-----------|---------|-------------|
 | `{{OUTPUT_DIR}}` | filepath | sí | auto-generado | Directorio de evidencia |
-| `{{C2_IPS}}` | string | no | `203.0.113.99` | IPs C2 a bloquear |
-| `{{BACKDOOR_USER}}` | string | no | `synthetic-user` | Usuario backdoor a deshabilitar |
-| `{{MALWARE_PATHS}}` | string | no | ver defaults | Rutas de malware a eliminar |
-| `{{CRON_BACKDOOR_FILE}}` | filepath | no | `/example/cron-entry` | Cron malicioso |
+| `{{C2_IPS}}` | string | sólo tras validación | vacío | IOCs del caso actual; nunca usar valores de ejemplo |
+| `{{BACKDOOR_USER}}` | string | sólo tras validación | vacío | Cuenta confirmada por evidencia del caso |
+| `{{MALWARE_PATHS}}` | string | sólo tras validación | vacío | Rutas preservadas y verificadas del caso |
+| `{{CRON_BACKDOOR_FILE}}` | filepath | sólo tras validación | vacío | Archivo confirmado por evidencia del caso |
 
 ## Reglas de orden de procedimiento
 1. **Preparation**: herramienta lista, conectividad SSH, almacenamiento externo, plan escrito.
@@ -145,7 +145,7 @@ Definir el flujo end-to-end de Respuesta a Incidentes en host Linux siguiendo NI
 7. **Recovery**: rebuild host desde imagen nueva / re-provision, restore data de backup limpio.
 8. **Lessons Learned**: informe post-incidente, mejorar controles.
 
-## 7 fases tácticas (ejemplo sintético — incidente anonimizado)
+## 7 fases tácticas (flujo ilustrativo; acciones destructivas requieren validación)
 ```
 1. PRE  — herramientas: sysstat, bin SOC, journal-dump, shasum, netcat sinkhole
 2. IDENT — trigger: CPU alta / network spike + vector inicial SSH
@@ -168,7 +168,9 @@ Definir el flujo end-to-end de Respuesta a Incidentes en host Linux siguiendo NI
 ```bash
 # [risk:ro] [mode:auto]
 # Fase de colección completa — ejecutar ANTES de cualquier acción de contención
-D="{{OUTPUT_DIR}}"
+D="${OUTPUT_DIR:?}"
+umask 077
+mkdir -p "$D"
 ts=$(date +%Y%m%d-%H%M%S)
 
 # --- Colección volátil completa ---
@@ -210,7 +212,17 @@ cp /var/log/auth.log /var/log/auth.log.1 "$D/" 2>/dev/null
 last -F > "$D/last.log"; lastb -F > "$D/lastb.log"
 
 # --- Hashing de integridad ---
-sha256sum $(find "$D" -type f | sort) > "$D/evidence.sha256"
+  (
+    cd "$D" || exit 1
+    tmp=$(mktemp .evidence.sha256.XXXXXX) || exit 1
+    if ! find . -type f ! -name 'evidence.sha256' ! -name '.evidence.sha256.*' -print0 \
+        | sort -z \
+        | xargs -0 -r sha256sum > "$tmp"; then
+      rm -f -- "$tmp"
+      exit 1
+    fi
+    mv -- "$tmp" evidence.sha256
+  )
 ```
 
 <!-- MODULE:helpers.hash_evidence -->
@@ -218,7 +230,8 @@ sha256sum $(find "$D" -type f | sort) > "$D/evidence.sha256"
 ### Fase 2: Triage / categorizar (SOLO-LECTURA)
 ```bash
 # [risk:ro] [mode:auto]
-D="{{OUTPUT_DIR}}"
+D="${OUTPUT_DIR:?}"
+umask 077
 # ¿Hay un miner?
 grep -- "--coin=monero" "$D"/proc-*-cmdline 2>/dev/null && echo "[TRIAGE] Miner detectado"
 # ¿Hay LD_PRELOAD rootkit?
@@ -231,20 +244,36 @@ grep -E "kthreadd|Xorg\.X" "$D/crontab" "$D"/cron.d/* 2>/dev/null && echo "[TRIA
 ```bash
 # [risk:cont] [mode:confirm]
 # Bloqueo egress al C2 (no mata procesos, preserva evidencia)
-for ip in {{C2_IPS}}; do
-  iptables -I OUTPUT -d "$ip" -j DROP 2>/dev/null
+read -r -a c2_ips <<< "${C2_IPS:-}"
+for ip in "${c2_ips[@]}"; do
+  python3 -c 'import ipaddress,sys; ipaddress.ip_address(sys.argv[1])' "$ip" || {
+    echo "ERROR: C2_IPS contiene una dirección inválida" >&2; exit 2;
+  }
+  iptables -I OUTPUT -d "$ip" -j DROP
   echo "[CONTAINMENT] Bloqueada salida hacia $ip"
 done
 
-# Bloqueo de usuario backdoor
-usermod -L "{{BACKDOOR_USER}}" 2>/dev/null
-usermod -s /usr/sbin/nologin "{{BACKDOOR_USER}}" 2>/dev/null
-gpasswd -d "{{BACKDOOR_USER}}" sudo 2>/dev/null
-echo "[CONTAINMENT] Usuario {{BACKDOOR_USER}} bloqueado"
+# Bloqueo de cuenta sólo tras validar identidad y alcance
+if [ -n "${BACKDOOR_USER:-}" ]; then
+  [[ "$BACKDOOR_USER" =~ ^[a-zA-Z_][a-zA-Z0-9_.-]*[$]?$ ]] || { echo "ERROR: BACKDOOR_USER inválido" >&2; exit 2; }
+  getent passwd "$BACKDOOR_USER" >/dev/null || { echo "ERROR: usuario no existe" >&2; exit 2; }
+  usermod -L "$BACKDOOR_USER"
+  usermod -s /usr/sbin/nologin "$BACKDOOR_USER"
+  gpasswd -d "$BACKDOOR_USER" sudo 2>/dev/null || true
+  echo "[CONTAINMENT] Usuario bloqueado"
+else
+  echo "[SKIP] BACKDOOR_USER vacío; identificar y validar antes de contener"
+fi
 
 # Comentar entrada maliciosa en cron (con backup)
-sed -i.bak 's|^\*/5.*Xorg.X13 55|#*/5 * * * * root /example/synthetic-dropper 55|' "{{CRON_BACKDOOR_FILE}}" 2>/dev/null
-echo "[CONTAINMENT] Entrada de cron comentada en {{CRON_BACKDOOR_FILE}}"
+if [ -n "${CRON_BACKDOOR_FILE:-}" ]; then
+  [[ "$CRON_BACKDOOR_FILE" == /* && -f "$CRON_BACKDOOR_FILE" && ! -L "$CRON_BACKDOOR_FILE" ]] || {
+    echo "ERROR: CRON_BACKDOOR_FILE debe ser un archivo absoluto validado" >&2; exit 2;
+  }
+  echo "[REVIEW REQUIRED] Preservar y validar la entrada de cron antes de cambiarla"
+else
+  echo "[SKIP] CRON_BACKDOOR_FILE vacío; identificar y validar antes de contener"
+fi
 ```
 
 <!-- MODULE:helpers.block_c2_egress -->
@@ -256,7 +285,10 @@ echo "[CONTAINMENT] Entrada de cron comentada en {{CRON_BACKDOOR_FILE}}"
 D="{{OUTPUT_DIR}}"
 
 # Eliminar binarios de malware
-for f in {{MALWARE_PATHS}}; do
+mapfile -t malware_paths <<< "${MALWARE_PATHS:-}"
+for f in "${malware_paths[@]}"; do
+  [ -n "$f" ] || continue
+  [[ "$f" == /* && -f "$f" && ! -L "$f" ]] || { echo "ERROR: ruta de malware no válida" >&2; exit 2; }
   if [ -f "$f" ]; then
     sha256sum "$f" > "$D/erased_$(basename "$f").sha256" 2>/dev/null
     rm -f "$f"
@@ -270,8 +302,14 @@ cp /etc/ld.so.preload "$D/ld.so.preload.erased" 2>/dev/null
 echo "[ERADICATION] /etc/ld.so.preload limpiado"
 
 # Eliminar usuario backdoor
-userdel -r "{{BACKDOOR_USER}}" 2>/dev/null
-echo "[ERADICATION] Usuario {{BACKDOOR_USER}} eliminado"
+if [ -n "${BACKDOOR_USER:-}" ]; then
+  [[ "$BACKDOOR_USER" =~ ^[a-zA-Z_][a-zA-Z0-9_.-]*[$]?$ ]] || { echo "ERROR: BACKDOOR_USER inválido" >&2; exit 2; }
+  getent passwd "$BACKDOOR_USER" >/dev/null || { echo "ERROR: usuario no existe" >&2; exit 2; }
+  userdel -r "$BACKDOOR_USER"
+  echo "[ERADICATION] Usuario eliminado"
+else
+  echo "[SKIP] BACKDOOR_USER vacío; identificar y validar antes de erradicar"
+fi
 
 # Rotar SSH host keys
 ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N '' 2>/dev/null

@@ -6,7 +6,7 @@ category: "hardening"
 phase: "recover"
 risk: "reconf"
 execution_mode: "confirm"
-depends_on: ["incident_response"]
+depends_on: []
 provides: []
 triggers:
   - "Al final de un Compromise Assessment (sección hardening post-remediación)"
@@ -61,6 +61,7 @@ Comparar la configuración de un host Linux contra los controles CIS Benchmarks 
 ## Pre-flight
 ```bash
 # [risk:info] [mode:auto]
+umask 077
 mkdir -p "{{OUTPUT_DIR}}"/{initial,services,ssh,accounts,filesystem,logging,secrets,firewall}
 echo "CIS AUDIT START: $(date -Iseconds) on $(hostname)" | tee "{{OUTPUT_DIR}}/manifest.txt"
 ```
@@ -234,15 +235,15 @@ Recomendaciones CIS:
 # [risk:ro] [mode:auto]
 {
   echo "=== PLAINTEXT SECRETS IN /etc,/opt,/root,/home ==="
-  grep -rE "^(password|passwd|api_key|secret|token|private_key|client_secret)" \
+  grep -rlE "^(password|passwd|api_key|secret|token|private_key|client_secret)" \
     /etc /opt /root /home /var/www 2>/dev/null | head -50
   echo "=== PRIVATE KEYS EXPOSED ==="
-  grep -rEi "BEGIN (RSA|EC|OPENSSH|DSA) PRIVATE KEY|---BEGIN PRIVATE KEY" \
+  grep -rlEi "BEGIN (RSA|EC|OPENSSH|DSA) PRIVATE KEY|---BEGIN PRIVATE KEY" \
     /etc /opt /root /home 2>/dev/null | head -20
   echo "=== SENSITIVE DOTFILES ==="
   find / -xdev \( -name ".env" -o -name ".npmrc" -o -name ".pgpass" -o -name "credentials" -o -name ".netrc" \) 2>/dev/null
   echo "=== TOKENS IN CRONTABS ==="
-  grep -hE "Bearer|Authorization: Bearer|api_key|access_token" \
+  grep -hlE "Bearer|Authorization: Bearer|api_key|access_token" \
     /var/spool/cron/crontabs/* /etc/cron.d/* 2>/dev/null
   echo "=== SSH PRIVATE KEYS ==="
   file /root/.ssh/id_* 2>/dev/null
@@ -327,7 +328,7 @@ fi
 ## IOC específicos de hardening pentest
 - `/etc/ld.so.preload` con contenido (debe estar vacío o no existir → rootkit).
 - `PermitRootLogin yes`, `PasswordAuthentication yes` en sshd_config → backdoor habilitador.
-- Tokens `Authorization: Bearer 045e...` en crontabs (logged plaintext).
+- Tokens `Authorization: Bearer [REDACTED]` en crontabs (logged plaintext).
 - `chmod 644 /etc/shadow` — shadow world-readable.
 - `/tmp` mounted `rw` sin `noexec,nodev,nosuid`.
 

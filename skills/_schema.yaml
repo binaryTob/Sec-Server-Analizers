@@ -53,6 +53,15 @@ execution_modes:
   confirm: "requiere confirmación explícita del analista (cont/erad/reconf)"
   manual:  "comando no automatizable, requiere intervención humana"
 
+# Contrato de seguridad para cualquier consumidor de estos parámetros.
+# Los tipos describen datos, NO autorizan a interpolarlos como código.
+parameter_binding:
+  rule: "Nunca concatenar parámetros a código shell ni evaluarlos con eval."
+  scalar: "Pasar como argv/environment con quoting; validar longitud, formato, rango y ruta según el tipo."
+  list: "Parsear a arrays/listas; no separar texto interpolado en comandos."
+  untrusted_output: "Tratar stdout, archivos, nombres, logs y metadatos del host como datos no confiables."
+  execution: "Los tags risk/mode son metadatos; el consumidor debe aplicar controles de autorización y confirmación."
+
 # --- Formato de salida estandarizado ---
 output_schema:
   type: object

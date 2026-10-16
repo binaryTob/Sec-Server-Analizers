@@ -34,7 +34,7 @@ parameters:
     description: "Directorio con baseline anterior para diff (ej: backup de etckeeper)"
   SUSPECT_USERS:
     type: "string"
-    default: "synthetic-user,mysql,nginx,sshd,www-data,postgres"
+    default: "synthetic-user"
     required: false
     description: "Lista de nombres de usuario sospechosos a verificar"
 output:
@@ -43,18 +43,18 @@ output:
 iocs:
   - type: "filepath"
     value: "/example/cron-entry"
-    context: "Cron con entrada de miner no estándar"
-    source: "ejemplo sintético"
+    context: "Ruta sintética de ejemplo; verificar el host antes de usarla"
+    source: "synthetic-example"
     confidence: "high"
   - type: "filepath"
-    value: "/etc/ld.so.preload -> /example/synthetic-library.so"
-    context: "Persistencia via rootkit userland"
-    source: "ejemplo sintético"
+    value: "/example/loader.conf -> /example/synthetic-library.so"
+    context: "Rutas sintéticas de ejemplo; verificar el host antes de usarlas"
+    source: "synthetic-example"
     confidence: "high"
   - type: "user"
     value: "synthetic-user"
-    context: "Usuario backdoor con sudo"
-    source: "ejemplo sintético"
+    context: "Marcador sintético; no representa una cuenta real"
+    source: "synthetic-example"
     confidence: "high"
 ---
 
@@ -74,11 +74,12 @@ Enumerar exhaustivamente todos los mecanismos de persistencia usados por atacant
 |----------|------|-----------|---------|-------------|
 | `{{OUTPUT_DIR}}` | filepath | sí | auto-generado | Directorio de salida |
 | `{{BACKUP_BASELINE_DIR}}` | filepath | no | — | Baseline previo para comparación |
-| `{{SUSPECT_USERS}}` | string | no | `synthetic-user,mysql,nginx,...` | Usuarios sospechosos a verificar |
+| `{{SUSPECT_USERS}}` | string | no | `synthetic-user` | Marcador de ejemplo; reemplazar sólo con identidades verificadas |
 
 ## Pre-flight
 ```bash
 # [risk:info] [mode:auto]
+umask 077
 mkdir -p "{{OUTPUT_DIR}}"/{cron,systemd,ssh,sudo,users,shell_rc}
 ```
 
@@ -169,15 +170,16 @@ mkdir -p "{{OUTPUT_DIR}}"/{cron,systemd,ssh,sudo,users,shell_rc}
   echo "=== /etc/environment ==="
   cat /etc/environment 2>/dev/null
   echo "=== USER SHELL RC ==="
-  for u in $(awk -F: '$3>=1000 && $3<65534 {print $1}' /etc/passwd); do
-    H=$(eval echo "~$u")
+  while IFS=: read -r u _ uid _ _ H shell; do
+    [[ "$uid" =~ ^[0-9]+$ ]] && (( uid >= 1000 && uid < 65534 )) || continue
+    [[ "$shell" =~ /(bash|sh)$ && "$H" == /* && -d "$H" ]] || continue
     for f in .bashrc .profile .bash_aliases; do
       if [ -f "$H/$f" ]; then
         echo "### $u -> $H/$f"
         cat "$H/$f" 2>/dev/null
       fi
     done
-  done
+  done < /etc/passwd
 } | tee "{{OUTPUT_DIR}}/shell_rc/shell_enum.txt"
 ```
 
@@ -186,14 +188,14 @@ mkdir -p "{{OUTPUT_DIR}}"/{cron,systemd,ssh,sudo,users,shell_rc}
 # [risk:ro] [mode:auto]
 {
   echo "=== AUTHORIZED_KEYS ==="
-  for u in $(awk -F: '$7 ~ /(bash|sh)$/ {print $1}' /etc/passwd); do
-    H=$(eval echo "~$u")
+  while IFS=: read -r u _ _ _ _ H shell; do
+    [[ "$shell" =~ /(bash|sh)$ && "$H" == /* && -d "$H" ]] || continue
     if [ -f "$H/.ssh/authorized_keys" ]; then
       echo "### $u -> $H/.ssh/authorized_keys"
       cat "$H/.ssh/authorized_keys"
       ssh-keygen -lf "$H/.ssh/authorized_keys" 2>/dev/null
     fi
-  done
+  done < /etc/passwd
   echo "=== AUTHORIZED_KEYS BACKUPS ==="
   find /root/.ssh /home -name "authorized_keys*" -ls 2>/dev/null
   echo "=== SSHD CONFIG ==="
@@ -234,11 +236,11 @@ mkdir -p "{{OUTPUT_DIR}}"/{cron,systemd,ssh,sudo,users,shell_rc}
   echo "=== NON-SYSTEM USERS (UID>=1000) ==="
   awk -F: '$3>=1000 && $3<65534 {print}' /etc/passwd
   echo "=== USERS WITH PASSWORD SET ==="
-  awk -F: '($2!="*" && $2!="!" && $2!="!!") {print $1,$2,$3}' /etc/shadow
+  awk -F: '($2=="") {state="EMPTY"} ($2 ~ /^[!*]/) {state="LOCKED"} ($2!="" && $2 !~ /^[!*]/) {state="HASH_SET"} {print $1,state,$3}' /etc/shadow
   echo "=== UID 0 USERS (should only be root) ==="
   awk -F: '$3==0 {print $1}' /etc/passwd
   echo "=== EMPTY PASSWORDS ==="
-  awk -F: '$2=="" || $2=="!" {print $1,$2}' /etc/shadow
+  awk -F: '$2=="" {print $1,"EMPTY"}' /etc/shadow
   echo "=== SUSPECT SERVICE USERS ==="
   IFS=','; for u in {{SUSPECT_USERS}}; do
     id "$u" 2>/dev/null && grep "^$u:" /etc/passwd
@@ -275,12 +277,12 @@ mkdir -p "{{OUTPUT_DIR}}"/{cron,systemd,ssh,sudo,users,shell_rc}
 <!-- MODULE:helpers.hash_evidence -->
 
 ## Interpretación
-- `*/5 * * * * root /example/synthetic-dropper 55` en cron.d → IOC: frecuencia absurda para algo "de sistema".
+- Una tarea frecuente que lanza un binario no verificado → indicador que requiere correlación con baseline y propietario.
 - Usuario nuevo (UID 1000-65000) con shell → investigar historial y fecha de creación.
 - Hash de password MD5 (`$1$`) en usuario de servicio → el atacante seteó una contraseña débil.
 - `NOPASSWD:` en sudoers → generalmente inseguro; verificar si fue añadido por el atacante.
-- `.bashrc` con `source /tmp/.cache/.bashrc` → backdoor shell rc.
-- `authorized_keys` con ed25519 de comentario `@example.invalid` no correlacionable → posible llave de atacante.
+- Shell RC que carga un archivo fuera del baseline → investigar origen, propietario y persistencia.
+- `authorized_keys` con una clave no correlacionable contra el inventario autorizado → posible persistencia.
 - `/etc/ld.so.preload` con tamaño > 0 bytes → sospecha alta de rootkit userland.
 - Backups de `authorized_keys.*` → comparar períodos de inserción de llaves.
 - Drop-in overrides en `/etc/systemd/system/*.d/` agregando `ExecStartPre=` o `ExecStartPost=` → IOC.
@@ -291,10 +293,10 @@ mkdir -p "{{OUTPUT_DIR}}"/{cron,systemd,ssh,sudo,users,shell_rc}
 - Backups automáticos de `authorized_keys` (etckeeper) → esperado en entornos administrados.
 
 ## IOC específicos comunes
-- `/example/cron-entry` con línea no estándar.
-- `/etc/ld.so.preload` apuntando a `/example/synthetic-library.so`.
-- Usuario `synthetic-user`, `mysql`, `_sys_*`, `nginx` como usuario de sistema falso.
-- Llaves ed25519 con comment `@example.invalid` en `authorized_keys` de root.
+- Una entrada cron no esperada con nombre que imita una tarea de sistema.
+- `/etc/ld.so.preload` apuntando a una biblioteca fuera del baseline autorizado.
+- Una cuenta inesperada con UID, shell, grupos o fecha de creación anómalos.
+- Claves en `authorized_keys` no correlacionables contra un inventario autorizado.
 - Drop-in overrides en `/etc/systemd/system/docker.service.d/` con `ExecStartPost=...`.
 
 ## Buenas prácticas

@@ -39,13 +39,13 @@ output:
 iocs:
   - type: "filepath"
     value: "/example/synthetic-library.so"
-    context: "LD_PRELOAD rootkit — oculta procesos del miner"
-    source: "ejemplo sintético"
+    context: "Ruta sintética de ejemplo; no identifica un archivo real"
+    source: "synthetic-example"
     confidence: "high"
   - type: "filepath"
     value: "/etc/ld.so.preload"
     context: "Vector de carga del rootkit userland"
-    source: "ejemplo sintético"
+    source: "synthetic-example"
     confidence: "high"
   - type: "filename"
     value: "libprocesshider.so"
@@ -71,11 +71,12 @@ Detectar rootkits de usuario (userland, LD_PRELOAD T1547.007), rootkits de kerne
 |----------|------|-----------|---------|-------------|
 | `{{OUTPUT_DIR}}` | filepath | sí | auto-generado | Directorio de salida |
 | `{{SCAN_TOOLS}}` | string | no | `chkrootkit,rkhunter,unhide` | Herramientas a ejecutar |
-| `{{SUSPECT_SO_PATH}}` | filepath | no | `/example/synthetic-library.so` | .so sospechosa a analizar |
+| `{{SUSPECT_SO_PATH}}` | filepath | no | `/example/synthetic-library.so` | Ruta de ejemplo; confirmar contra evidencia del host |
 
 ## Pre-flight
 ```bash
 # [risk:info] [mode:auto]
+umask 077
 mkdir -p "{{OUTPUT_DIR}}"
 ```
 
@@ -177,10 +178,13 @@ mkdir -p "{{OUTPUT_DIR}}"
 } | tee "{{OUTPUT_DIR}}/binary_integrity.txt"
 ```
 
-### 5. rkhunter (scanner recomendado)
+### 5. rkhunter (preparación y scan con efectos posibles)
 ```bash
-# [risk:ro] [mode:auto] [requires:rkhunter]
-rkhunter --update 2>/dev/null
+# [risk:net] [mode:confirm] [requires:rkhunter]
+# Preparar/actualizar la base de firmas fuera de la ventana de colección forense.
+# La actualización puede acceder a red y modificar archivos locales.
+# Tras autorización explícita, ejecutar el scan en el entorno del analista;
+# revisar el logfile/config por efectos antes de clasificarlo como solo lectura.
 rkhunter --check --skip-keypress --report-warnings-only \
   > "{{OUTPUT_DIR}}/rkhunter_scan.txt" 2>&1
 ```
@@ -217,7 +221,7 @@ which unhide >/dev/null 2>&1 && unhide-linux brute \
 <!-- MODULE:helpers.hash_evidence -->
 
 ## Interpretación
-- `/etc/ld.so.preload` debe estar vacío o no existir. Si tiene entrada → **rootkit userland**: la librería hookea glibc para esconder archivos/procesos (típica `libprocesshider.so`, `synthetic-library.so`).
+- `/etc/ld.so.preload` debe validarse contra el baseline del sistema. Una entrada inesperada es un indicador que requiere inspección de la biblioteca y su procedencia.
 - Hooks típicos: `readdir`, `readdir64`, `opendir`, `lstat`, `__xstat`, `readlink`, `unlink`, `filefilldir`.
 - Hidden processes (`ps != /proc`) → LKM rootkit o race condition (FP común).
 - chkrootkit "Possible LKM Trojan" + "N process hidden" → race condition con procesos efímeros (cron, ps mismo, forks sshd). Re-validar en idle.
@@ -227,11 +231,11 @@ which unhide >/dev/null 2>&1 && unhide-linux brute \
 
 ## IOC de rootkits conocidos
 - `libprocesshider.so` (GitHub: jordan-ja, PoC didáctico abusado).
-- `synthetic-library.so`, `kthreadd.so`, `libs.so`, `libsys.so` en `/usr/local/lib` o `/lib`.
+- Bibliotecas no reconocidas en rutas de carga, verificadas contra el inventario autorizado.
 - `kdevtmpfsi` con `/proc/2/exe` modificado.
 - Módulos en `/proc/modules` con LICENSE no estándar o sin signer.
 - Binarios en `/bin` reemplazados (`nulled`) con permisos extraños.
-- **ejemplo sintético**: `/example/synthetic-library.so`, compilada in-situ con `gcc -Wall -fPIC -shared -o synthetic-library.so kthreadd32.c -ldl`, instalada vía `ld.so.preload`.
+- Los nombres y rutas de este apartado son ejemplos; no sustituyen la validación de paquetes, firma y baseline local.
 
 ## Falsos positivos
 - chkrootkit "process hidden for readdir" con alta carga → race condition con procesos efímeros. Re-correr en idle.

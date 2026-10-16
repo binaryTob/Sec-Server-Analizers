@@ -37,18 +37,18 @@ output:
 iocs:
   - type: "ssh-fingerprint"
     value: "SHA256:EXAMPLE_ONLY"
-    context: "RSA pubkey fingerprint — vector inicial"
-    source: "ejemplo sintético"
+    context: "Marcador sintético; no es una huella SSH real"
+    source: "synthetic-example"
     confidence: "high"
   - type: "ipv4-addr"
-    value: "192.0.2.170"
-    context: "IP origen atacante SSH (AWS US-West)"
-    source: "ejemplo sintético"
+    value: "192.0.2.17"
+    context: "Dirección sintética reservada para documentación; no es un IOC operativo"
+    source: "synthetic-example"
     confidence: "high"
   - type: "user"
     value: "synthetic-user"
-    context: "Usuario backdoor con login keyboard-interactive"
-    source: "ejemplo sintético"
+    context: "Marcador sintético; no representa una cuenta real"
+    source: "synthetic-example"
     confidence: "high"
 ---
 
@@ -73,6 +73,7 @@ Investigar evidencia forense asociada a SSH en un host Linux: llaves autorizadas
 ## Pre-flight
 ```bash
 # [risk:info] [mode:auto]
+umask 077
 mkdir -p "{{OUTPUT_DIR}}"/{keys,config,logs}
 ```
 
@@ -108,7 +109,8 @@ fi
 ```bash
 # [risk:ro] [mode:auto]
 for u in $(awk -F: '$7 ~ /(bash|sh)$/ {print $1}' /etc/passwd); do
-  H=$(eval echo "~$u")
+  H=$(getent passwd "$u" | awk -F: 'NR==1 {print $6}')
+  [[ "$H" == /* && -d "$H" ]] || continue
   if [ -f "$H/.ssh/authorized_keys" ]; then
     echo "### $u -> $H/.ssh/authorized_keys"
     cat "$H/.ssh/authorized_keys"
@@ -187,19 +189,19 @@ journalctl --since "{{SINCE}}" 2>/dev/null | grep sshd \
   - `Accepted keyboard-interactive/pam` → vía PAM (puede ser password, OTP, etc.). Si `PasswordAuthentication=no` pero `KbdInteractiveAuthentication=yes` + `UsePAM=yes`, las passwords entran por aquí.
 - `PermitRootLogin prohibit-password` → root solo por llave. Un `Accepted password for root` después de este setting es imposible sin override manual.
 - Llaves en `authorized_keys` que NO están en backups → inserciones posteriores potencialmente del atacante.
-- Comentario de llave (`synthetic@example.invalid`): verificar si correlaciona con identidad legítima de admin.
+- Comentario de llave (`synthetic-admin@example.invalid`): marcador de ejemplo; verificar identidades únicamente contra un inventario autorizado.
 - SSH certificates (firmados por CA) tienen ID con `@dominio` — útil en enterprises con CA SSH.
 - `lastb` con miles de intentos fallidos desde bots → ruido normal. Pocos intentos desde un rango IP pequeño → posible credential stuffing dirigido.
 
 ## Falsos positivos
-- Llaves personales de admin con comment leetspeak (`synthetic@example.invalid`): pueden ser admins reales.
+- Comentarios con formato de correo o seudónimo: pueden identificar administradores legítimos; correlacionar sin copiar su contenido a informes públicos.
 - Sesiones root `keyboard-interactive/pam` desde IPs de la empresa: admins con password/OTP fijo.
 - Failed login de bots en miles para root: ruido normal de internet.
 
 ## IOC específicos
 - `Accepted publickey for root from <AWS US-west IP>` con fingerprint RSA no visto en backups → vector inicial.
-- Usuario `synthetic-user` (no estándar) creado y luego logins `keyboard-interactive/pam` → **ejemplo sintético**: backdoor user.
-- Llaves con comment `@example.invalid` sin identidad legítima correlacionable.
+- Usuario de servicio no esperado creado y luego logins `keyboard-interactive/pam` → investigar contra un baseline autorizado.
+- Llave con comentario externo no correlacionable → validar titularidad antes de clasificarla.
 - SSH host keys removidas/regeneradas (`rc.local` ejecutando `dpkg-reconfigure openssh-server`).
 - `PermitRootLogin yes` o `PasswordAuthentication yes` en sshd_config.
 

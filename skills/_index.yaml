@@ -119,7 +119,7 @@ skills:
     phase: "recover"
     risk: "reconf"
     execution_mode: "confirm"
-    depends_on: ["incident_response"]
+    depends_on: []
     provides: []
 
 # --- Workflows predefinidos ---
@@ -139,8 +139,8 @@ workflows:
       - "malware_hunting"
       - "rootkit_detection"
       - "persistence_detection"
-      - "ssh_forensics"
       - "log_analysis"
+      - "ssh_forensics"
       - "IOC_hunting"
 
   incident_response_full:
@@ -151,8 +151,8 @@ workflows:
       - "malware_hunting"
       - "rootkit_detection"
       - "persistence_detection"
-      - "ssh_forensics"
       - "log_analysis"
+      - "ssh_forensics"
       - "IOC_hunting"
       - "incident_response"
       - "hardening"

@@ -41,23 +41,23 @@ output:
 iocs:
   - type: "x-mono-wallet"
     value: "SYNTHETIC_WALLET_EXAMPLE"
-    context: "Wallet XMR del operador"
-    source: "ejemplo sintético"
+    context: "Marcador sintético; no es una dirección de wallet"
+    source: "synthetic-example"
     confidence: "high"
   - type: "ipv4-addr"
-    value: "203.0.113.99"
-    context: "C2 pool XMRig puerto 143"
-    source: "ejemplo sintético"
+    value: "198.51.100.42"
+    context: "Dirección sintética reservada para documentación; no es un IOC operativo"
+    source: "synthetic-example"
     confidence: "high"
   - type: "domain-name"
     value: "example.invalid"
-    context: "Dominio de entrega de dropper + payload"
-    source: "ejemplo sintético"
+    context: "Dominio sintético reservado para documentación; no es un IOC operativo"
+    source: "synthetic-example"
     confidence: "high"
   - type: "email"
-    value: "synthetic@example.invalid"
-    context: "Email del operador en worker tag del pool"
-    source: "ejemplo sintético"
+    value: "operator@example.invalid"
+    context: "Marcador sintético; no es una identidad real"
+    source: "synthetic-example"
     confidence: "medium"
 ---
 
@@ -84,6 +84,7 @@ Detectar cryptominers (XMRig, Kinsing, Sysrv, Rocke, 8220, Perfctl) residentes e
 ## Pre-flight
 ```bash
 # [risk:info] [mode:auto]
+umask 077
 mkdir -p "{{OUTPUT_DIR}}"
 command -v ss >/dev/null 2>&1 || { echo "ERROR: ss no disponible"; exit 1; }
 ```
@@ -178,7 +179,7 @@ ls -la /etc/cron.d/* /etc/cron.daily/* /etc/cron.hourly/* > "{{OUTPUT_DIR}}/cron
 ## Interpretación
 - Cmdline `kthreadd64 ... --cpu-priority=N --donate-level=0 -o <ip>:<port> -u <wallet[.worker/email]> --coin=monero -k` → **XMRig** minando Monero.
 - Wallet Monero (XMR): base58 de ~95 caracteres, empieza con `4` o `8`.
-- Pool addresses típicas: `pool.supportxmr.com:3333`, `pool.minexmr.com:4444`, `gulf.moneroocean.stream:10128`, IPs en `198.51.*.*`, `138.2.*.*`.
+- Los nombres de pools y dominios son indicadores sujetos a verificación; no se incluyen direcciones operativas de incidentes.
 - `--donate-level=0` → el atacante removió la donación al dev de XMRig (rasgo típico de miner malicioso).
 - `-k` → keepalive para reconexión automática al pool.
 - LD_PRELOAD rootkit que hookea `readdir` para ocultar el proceso del miner.
@@ -200,5 +201,5 @@ ls -la /etc/cron.d/* /etc/cron.daily/* /etc/cron.hourly/* > "{{OUTPUT_DIR}}/cron
 - TrendMicro: "Detecting and Mitigating Cryptomining Malware in Linux"
 - CrowdStrike: "8220 Gang"; Aqua: "perfctl" (14/08/2024)
 - MalwareBazaar: https://bazaar.abuse.ch/
-- Dominio `example.invalid` — **ejemplo sintético**: campaña Perfctl/PerfX
+- Dominio `example.invalid` — marcador sintético reservado para documentación
 - Tinymanw Dhilip: "ld.so.preload malware family"

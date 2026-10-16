@@ -63,6 +63,7 @@ Recolectar primero lo más volátil: memoria → conexiones de red → procesos 
 ## Pre-flight
 ```bash
 # [risk:info] [mode:auto]
+umask 077
 mkdir -p "{{OUTPUT_DIR}}"/{proc,net,logs,files,persistence}
 echo "FORENSIC COLLECTION START: $(date -Iseconds) on $(hostname)" \
   | tee "{{OUTPUT_DIR}}/manifest.txt"
@@ -186,7 +187,7 @@ ls -la /proc/*/exe 2>/dev/null | grep "(deleted)" \
   echo "=== FILES MODIFIED LAST 7d IN /etc ==="
   find /etc -mtime -7 -type f 2>/dev/null
   echo "=== MALWARE SIGNATURE GREP ==="
-  grep -rEi "xmrig|kinsing|kdevtmpfsi|cnrig|minerd|cryptonight|stratum|monero|localhost0\.xyz|teamtnt|perfctl|redtail|rocke|sysrv" \
+  grep -rEi "xmrig|kinsing|kdevtmpfsi|cnrig|minerd|cryptonight|stratum|monero|example\.invalid|teamtnt|perfctl|redtail|rocke|sysrv" \
     /etc/ /root/ /var/spool/cron/ 2>/dev/null
 } | tee "{{OUTPUT_DIR}}/files/ioc_scan.txt"
 ```
@@ -245,7 +246,7 @@ ls -la /proc/*/exe 2>/dev/null | grep "(deleted)" \
 - `/sbin/kthreadd*64` o `/usr/sbin/kthreadd*` → **siempre** anómalo (el `kthreadd` real es PID 2 del kernel).
 - `/sbin/Xorg.X*`, `/sbin/busybox` descargado por dropper.
 - C2 sobre puertos 143/110/443 disfrazados.
-- Usuario creado por atacante: `synthetic-user`, `mysql`, `nginx`, `_*` como nombres de servicio falsos.
+- Cuenta de servicio no esperada con UID/shell/grupos que contradicen el baseline autorizado.
 
 ## Buenas prácticas DFIR
 - **Modo solo-lectura TODO el tiempo durante la colección**: NO matar procesos, NO borrar archivos, NO remediar.

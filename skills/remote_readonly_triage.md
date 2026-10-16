@@ -51,7 +51,7 @@ output:
 # Skill: Remote Readonly Triage (SSH)
 
 ## Objetivo
-Ejecutar un Compromise Assessment completo contra un host Linux **por SSH**, capturando toda la evidencia **localmente** en la máquina del analista y **sin escribir ni un solo byte en el servidor remoto**. Cumple RFC 3227 (no alterar el estado del sistema) y permite triage seguro de VPS/cloud.
+Ejecutar un Compromise Assessment contra un host Linux por SSH, guardando la salida de colección en un directorio local restringido. Los bloques no solicitan escrituras de evidencia en el target; SSH, auditoría y lecturas pueden generar logs o cambios de metadata, por lo que no se promete cero cambios.
 
 ## Cuándo usarla
 - Sospecha de ataque/infección/mal-funcionamiento en un host Linux accesible por SSH.
@@ -76,14 +76,31 @@ El resto de las skills asumen ejecución **local** y guardan evidencia con `tee`
 
 ```bash
 # [risk:info] [mode:auto]
+umask 077
 command -v ssh >/dev/null 2>&1 || { echo "ERROR: ssh no disponible localmente"; exit 1; }
-mkdir -p "$OUTPUT_DIR"
+command -v timeout >/dev/null 2>&1 || { echo "ERROR: timeout no disponible localmente"; exit 1; }
+[[ ! -L "$OUTPUT_DIR" ]] || { echo "ERROR: OUTPUT_DIR no puede ser un symlink"; exit 2; }
+mkdir -p -m 700 -- "$OUTPUT_DIR"
+[[ -d "$OUTPUT_DIR" && -O "$OUTPUT_DIR" ]] || { echo "ERROR: OUTPUT_DIR debe ser un directorio propio"; exit 2; }
+[[ -z "$(find "$OUTPUT_DIR" -mindepth 1 -maxdepth 1 -print -quit)" ]] || { echo "ERROR: OUTPUT_DIR debe estar vacío"; exit 2; }
+chmod 700 -- "$OUTPUT_DIR"
+[[ "${PORT:-22}" =~ ^[0-9]{1,5}$ ]] && (( 10#${PORT:-22} >= 1 && 10#${PORT:-22} <= 65535 )) || { echo "ERROR: PORT inválido"; exit 2; }
+[[ "${USER:-root}" =~ ^[a-zA-Z_][a-zA-Z0-9_.-]*[$]?$ ]] || { echo "ERROR: USER inválido"; exit 2; }
+[[ "${STEP_TIMEOUT:-120}" =~ ^[0-9]+$ ]] || { echo "ERROR: STEP_TIMEOUT inválido"; exit 2; }
 
 # Wrapper: ejecuta un script solo-lectura en el host remoto vía stdin (bash -s).
 # Nada de lo que corra acá escribe en el target: todo el output vuelve a la máquina local.
-SSH_OPTS="-o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new ${SSH_ARGS}"
+SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=yes \
+  -o UpdateHostKeys=no -o ForwardAgent=no -o ClearAllForwardings=yes \
+  -o ControlMaster=no -o ControlPath=none)
+if [ -n "${SSH_ARGS:-}" ]; then
+  read -r -a EXTRA_SSH_ARGS <<< "$SSH_ARGS"
+  SSH_OPTS+=("${EXTRA_SSH_ARGS[@]}")
+fi
+printf -v REMOTE_COMMAND 'SINCE=%q exec bash --noprofile --norc -s' "${SINCE:-1 day ago}"
 remote() {
-  ssh ${SSH_OPTS} -p "${PORT}" "${USER}@${HOST}" bash -s
+  timeout "${STEP_TIMEOUT:-120}" ssh "${SSH_OPTS[@]}" \
+    -p "${PORT:-22}" "${USER:-root}@${HOST}" "$REMOTE_COMMAND"
 }
 
 # Test de conectividad (readonly). Si falla, aborta sin tocar nada.
@@ -264,7 +281,7 @@ EOF
 # [risk:ro] [mode:auto]
 remote <<'EOF' | tee "$OUTPUT_DIR/11_malfunction.txt"
 echo "=== FAILED UNITS ==="; systemctl list-units --type=service --state=failed --no-pager 2>/dev/null
-echo "=== JOURNAL ERR (24h) ==="; journalctl -p err --since "24 hours ago" --no-pager 2>/dev/null | tail -60
+echo "=== JOURNAL ERR (requested window) ==="; journalctl -p err --since "$SINCE" --no-pager 2>/dev/null | tail -60
 echo "=== OOM / PANIC / SEGFAULT ==="; grep -iE 'oom|kill|panic|segfault|hung task' /var/log/kern.log /var/log/syslog 2>/dev/null | tail -30
 echo "=== DISK INODES ==="; df -ih
 EOF

@@ -42,29 +42,29 @@ output:
   schema: "output_schema"
 iocs:
   - type: "ipv4-addr"
-    value: "192.0.2.170"
-    context: "IP origen atacante (AWS US-West Oregon)"
-    source: "ejemplo sintético"
+    value: "192.0.2.17"
+    context: "Dirección sintética reservada para documentación; no es un IOC operativo"
+    source: "synthetic-example"
     confidence: "high"
   - type: "ipv4-addr"
-    value: "203.0.113.99"
-    context: "C2 pool XMRig stratum puerto 143"
-    source: "ejemplo sintético"
+    value: "198.51.100.42"
+    context: "Dirección sintética reservada para documentación; no es un IOC operativo"
+    source: "synthetic-example"
     confidence: "high"
   - type: "domain-name"
     value: "example.invalid"
-    context: "Dropper/download delivery CDN"
-    source: "ejemplo sintético"
+    context: "Dominio sintético reservado para documentación; no es un IOC operativo"
+    source: "synthetic-example"
     confidence: "high"
   - type: "file:sha256"
     value: "0000000000000000000000000000000000000000000000000000000000000000"
-    context: "kthreadd64 — XMRig binary"
-    source: "ejemplo sintético"
+    context: "Hash sintético reservado para documentación; no es un IOC operativo"
+    source: "synthetic-example"
     confidence: "high"
   - type: "x-mono-wallet"
     value: "SYNTHETIC_WALLET_EXAMPLE"
-    context: "Wallet Monero del atacante"
-    source: "ejemplo sintético"
+    context: "Marcador sintético; no es una dirección de wallet"
+    source: "synthetic-example"
     confidence: "high"
 ---
 
@@ -84,12 +84,13 @@ Caza sistemática de Indicators of Compromise (IOCs) implementando patrones por 
 |----------|------|-----------|---------|-------------|
 | `{{OUTPUT_DIR}}` | filepath | sí | auto-generado | Directorio de salida |
 | `{{SINCE}}` | datetime | no | `1 day ago` | Ventana temporal |
-| `{{C2_DOMAINS}}` | string | no | `example.invalid` | Dominios C2 a buscar |
+| `{{C2_DOMAINS}}` | string | no | `example.invalid` | Dominio de ejemplo; sustituir por IOCs verificados para el caso |
 | `{{WALLET_PATTERN}}` | regex | no | Monero base58 | Regex para wallets crypto |
 
 ## Pre-flight
 ```bash
 # [risk:info] [mode:auto]
+umask 077
 mkdir -p "{{OUTPUT_DIR}}"/{network,host,file,behavior,feeds}
 ```
 
@@ -204,19 +205,17 @@ mkdir -p "{{OUTPUT_DIR}}"/{network,host,file,behavior,feeds}
 } | tee "{{OUTPUT_DIR}}/network/tunnels.txt"
 ```
 
-### 7. Generación de feed estandarizado (ejemplo sintético)
+### 7. Generación de feed sintético de ejemplo
 ```bash
 # [risk:ro] [mode:auto]
 cat > "{{OUTPUT_DIR}}/feeds/iocs.csv" << 'IOCEOF'
-type,value,context,first_seen,last_seen,confidence
-ipv4-addr,203.0.113.99,xmrig pool,2026-08-04,2026-08-06,high
-domain-name,example.invalid,malware delivery,2026-08-04,2026-08-06,high
-file:sha256,0000000000000000000000000000000000000000000000000000000000000000,kthreadd64 (xmrig),2026-08-04,2026-08-06,high
-x-mono-wallet,SYNTHETIC_WALLET_EXAMPLE,,2026-08-04,2026-08-06,high
-email,synthetic@example.invalid,worker tag in pool,2026-08-04,2026-08-06,medium
-user,synthetic-user,ssh comment proton mail,,,,needs_context
-ipv4-addr,192.0.2.170,attacker source (AWS US-West),2026-08-04,2026-08-04,high
-file:sha256,0000000000000000000000000000000000000000000000000000000000000000,ssh rsa pubkey fp initial access,,2026-08-04,high
+type,value,context,first_seen,last_seen,confidence,source
+ipv4-addr,192.0.2.10,synthetic documentation address,,,low,synthetic-example
+domain-name,example.invalid,synthetic documentation domain,,,low,synthetic-example
+file:sha256,0000000000000000000000000000000000000000000000000000000000000000,synthetic placeholder,,,low,synthetic-example
+x-mono-wallet,SYNTHETIC_WALLET_EXAMPLE,not a wallet,,,low,synthetic-example
+email,analyst@example.invalid,synthetic placeholder,,,low,synthetic-example
+user,synthetic-user,synthetic placeholder,,,low,synthetic-example
 IOCEOF
 
 echo "[FEED] IOCs exportados a {{OUTPUT_DIR}}/feeds/iocs.csv"
@@ -240,25 +239,21 @@ wc -l "{{OUTPUT_DIR}}/feeds/iocs.csv"
 - `/dev/tcp` en shell scripts legítimos (aunque raro, posible en herramientas de monitoreo).
 - Herramientas de tunneling (chisel, ngrok) usadas por developers para debugging.
 
-## IOC list — ejemplo sintético
-IOCs extraídos de un ejemplo sintético usado como training data.
+## IOC list — ejemplos sintéticos
+Los valores siguientes son documentación ficticia y no deben usarse para atribuir actividad ni bloquear tráfico.
 ```
 IPs:
-  192.0.*.*          (AWS US-West Oregon — IP origen atacante)
-  198.51.*.*          (C2 pool XMRig stratum)
+  192.0.2.0/24        (rango IPv4 reservado para documentación)
+  198.51.100.0/24     (rango IPv4 reservado para documentación)
 Domains:
-  example.invalid      (dropper/download delivery CDN)
+  example.invalid     (dominio reservado para documentación)
 Files:
-  /example/synthetic-dropper      (sh dropper)
-  /example/synthetic-downloader (downloader)
-  /example/synthetic-miner     (XMRig binary, ~8MB)
-  /example/synthetic-library.so (LD_PRELOAD rootkit userland)
-Wallet:
-  4B7vs... (Monero XMR, truncado)
-Backdoor: synthetic-user (UID 1005)
+  /example/synthetic-dropper (marcador de ejemplo)
+Wallet: SYNTHETIC_WALLET_EXAMPLE (no es una dirección válida)
+Backdoor: synthetic-user (marcador de ejemplo)
 Persistence:
-  /example/cron-entry (entrada de miner cada 5 min)
-  /etc/ld.so.preload -> synthetic-library.so
+  /example/cron-entry (marcador de ejemplo)
+  /example/loader.conf (marcador de ejemplo)
 TTP ATT&CK:
   T1110, T1078, T1098.001, T1136.001, T1059.004, T1105, T1027.002,
   T1547.007, T1543.002, T1053.003, T1496, T1571

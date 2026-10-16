@@ -17,11 +17,12 @@
 # whole assessment.
 #
 # Usage:
-#   ./tools/remote_triage.sh --host 198.51.100.27 --port 22 --user root \
+#   ./tools/remote_triage.sh --host 192.0.2.1 --port 22 --user root \
 #       --output-dir ./forensic-remote-$(date +%Y%m%d-%H%M%S) --since "30 days ago"
 #
 # ============================================================
-set -u
+set -Eeuo pipefail
+umask 077
 
 usage() {
   cat <<'EOF'
@@ -75,16 +76,57 @@ if [ -z "$HOST" ]; then
   exit 1
 fi
 
+if ! [[ "$PORT" =~ ^[0-9]{1,5}$ ]] || (( 10#$PORT < 1 || 10#$PORT > 65535 )); then
+  echo "ERROR: --port must be an integer from 1 to 65535" >&2
+  exit 2
+fi
+if ! [[ "$USER" =~ ^[a-zA-Z_][a-zA-Z0-9_.-]*[$]?$ ]]; then
+  echo "ERROR: --user contains invalid characters" >&2
+  exit 2
+fi
+if (( ${#SINCE} > 128 )) || [[ "$SINCE" == *$'\n'* || "$SINCE" == *$'\r'* ]]; then
+  echo "ERROR: --since is too long or contains a line break" >&2
+  exit 2
+fi
+if ! [[ "$STEP_TIMEOUT" =~ ^[0-9]+$ ]]; then
+  echo "ERROR: --step-timeout must be a non-negative integer" >&2
+  exit 2
+fi
+
 command -v ssh >/dev/null 2>&1 || { echo "ERROR: ssh not available locally"; exit 1; }
 command -v timeout >/dev/null 2>&1 || { echo "ERROR: 'timeout' (coreutils) not available locally"; exit 1; }
 
 OUTPUT_DIR="${OUTPUT_DIR:-./forensic-remote-$(date +%Y%m%d-%H%M%S)}"
-mkdir -p "$OUTPUT_DIR"
+if [[ -L "$OUTPUT_DIR" ]]; then
+  echo "ERROR: evidence directory must not be a symlink" >&2
+  exit 2
+fi
+if [[ -e "$OUTPUT_DIR" ]]; then
+  [[ -d "$OUTPUT_DIR" ]] || { echo "ERROR: evidence path is not a directory" >&2; exit 2; }
+else
+  mkdir -p -m 700 -- "$OUTPUT_DIR"
+fi
+if [[ ! -O "$OUTPUT_DIR" ]]; then
+  echo "ERROR: evidence directory is not owned by the current user" >&2
+  exit 2
+fi
+if [[ -n "$(find "$OUTPUT_DIR" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
+  echo "ERROR: evidence directory must be empty; refusing to overwrite prior evidence" >&2
+  exit 2
+fi
+chmod 700 -- "$OUTPUT_DIR"
 
-SSH_OPTS="-o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new ${SSH_ARGS}"
-remote() {
-  ssh ${SSH_OPTS} -p "${PORT}" "${USER}@${HOST}" bash -s
-}
+SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=yes \
+  -o UpdateHostKeys=no -o ForwardAgent=no -o ClearAllForwardings=yes \
+  -o ControlMaster=no -o ControlPath=none)
+if [[ -n "$SSH_ARGS" ]]; then
+  read -r -a EXTRA_SSH_ARGS <<< "$SSH_ARGS"
+  SSH_OPTS+=("${EXTRA_SSH_ARGS[@]}")
+fi
+# Keep this command static: pass SINCE as one quoted environment assignment,
+# then execute Bash from stdin. It is data, never part of the remote script.
+printf -v REMOTE_COMMAND 'SINCE=%q exec bash --noprofile --norc -s' "$SINCE"
+SSH_COMMAND=(ssh "${SSH_OPTS[@]}" -p "$PORT" "${USER}@${HOST}" "$REMOTE_COMMAND")
 
 # run_remote OUTPUTFILE
 # Reads the read-only script from stdin and runs it on the remote host via
@@ -94,13 +136,17 @@ remote() {
 run_remote() {
   local out="$1"
   if [ "${STEP_TIMEOUT}" != "0" ]; then
-    if timeout "${STEP_TIMEOUT}" remote > "$out" 2>&1; then
+    if timeout "${STEP_TIMEOUT}" "${SSH_COMMAND[@]}" > "$out" 2>&1; then
       return 0
     fi
-    echo "    [!] step cut off after ${STEP_TIMEOUT}s — partial data kept in ${out} (continuing)"
-    return 1
+    echo "    [!] step failed or timed out — partial data kept in ${out} (continuing)"
+    return 0
   fi
-  remote > "$out" 2>&1
+  if "${SSH_COMMAND[@]}" > "$out" 2>&1; then
+    return 0
+  fi
+  echo "    [!] remote step failed — partial data kept in ${out} (continuing)"
+  return 0
 }
 
 echo "[*] Host: ${USER}@${HOST}:${PORT}"
@@ -110,7 +156,7 @@ echo "[*] Per-step timeout: ${STEP_TIMEOUT}s"
 
 # --- 0. Connectivity (readonly). Aborts cleanly on failure. ---
 echo "[*] (0/12) Connectivity test ..."
-timeout 30 remote > "$OUTPUT_DIR/00_connectivity.txt" 2>&1 <<'EOF'
+if timeout 30 "${SSH_COMMAND[@]}" > "$OUTPUT_DIR/00_connectivity.txt" 2>&1 <<'EOF'
 echo "=== CONNECTIVITY $(date -Iseconds) ==="
 hostname
 uname -a
@@ -118,7 +164,11 @@ id
 date -Iseconds
 uptime
 EOF
-rc=$?
+then
+  rc=0
+else
+  rc=$?
+fi
 if [ "$rc" -ne 0 ]; then
   echo "ERROR: could not connect to ${USER}@${HOST}:${PORT}"
   cat "$OUTPUT_DIR/00_connectivity.txt"
@@ -258,15 +308,19 @@ EOF
 
 # --- 12. Malfunction ---
 echo "[*] (12/12) Malfunction ..."
-run_remote "$OUTPUT_DIR/11_malfunction.txt" <<EOF
+run_remote "$OUTPUT_DIR/11_malfunction.txt" <<'EOF'
 echo "=== FAILED UNITS ==="; systemctl list-units --type=service --state=failed --no-pager 2>/dev/null
-echo "=== JOURNAL ERR (window) ==="; journalctl -p err --since "${SINCE}" --no-pager 2>/dev/null | tail -60
+echo "=== JOURNAL ERR (window) ==="; journalctl -p err --since "$SINCE" --no-pager 2>/dev/null | tail -60
 echo "=== OOM / PANIC / SEGFAULT ==="; grep -iE 'oom|kill|panic|segfault|hung task' /var/log/kern.log /var/log/syslog 2>/dev/null | tail -30
 echo "=== DISK INODES ==="; df -ih
 EOF
 
 # --- Evidence manifest (chain of custody) ---
 echo "[*] Hashing evidence ..."
-( cd "$OUTPUT_DIR" && sha256sum $(find . -type f | sort) > evidence.sha256 )
+( cd "$OUTPUT_DIR" && \
+  find . -type f ! -name 'evidence.sha256' ! -name '.evidence.sha256.*' -print0 \
+    | sort -z \
+    | xargs -0 -r sha256sum > .evidence.sha256.tmp \
+  && mv -- .evidence.sha256.tmp evidence.sha256 )
 
 echo "[*] Done. Evidence in: $OUTPUT_DIR"

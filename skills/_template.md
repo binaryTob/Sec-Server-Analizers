@@ -59,6 +59,7 @@ Descripción concisa de lo que esta skill logra (1-2 frases).
 ## Pre-flight (validación de entorno)
 ```bash
 # [risk:info] [mode:auto]
+umask 077
 mkdir -p "{{OUTPUT_DIR}}"
 command -v ss >/dev/null 2>&1 || { echo "ERROR: ss no disponible"; exit 1; }
 ```
